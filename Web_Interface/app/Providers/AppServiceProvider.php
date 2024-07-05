@@ -26,6 +26,7 @@ class AppServiceProvider extends ServiceProvider
     {
         \View::composer('components.analytics', \App\Http\ViewComposers\AnalyticsComposer::class);
         \View::composer('components.welcome', \App\Http\ViewComposers\WelcomeComposer::class);
+        \View::composer('components.reports', \App\Http\ViewComposers\ReportsComposer::class);
 
 
 

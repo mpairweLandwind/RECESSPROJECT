@@ -8,7 +8,7 @@ use App\Models\Challenge;
 use App\Services\ReportService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
-use LynX39\LaraPdfMerger\Facades\PdfMerger; // Import PDFMerger facade
+use iio\libmergepdf\Merger; // Import Merger class
 
 class ReportController extends Controller
 {
@@ -97,12 +97,12 @@ class ReportController extends Controller
 
     private function mergePdfs($pdfs)
     {
-        $pdfMerger = PDFMerger::init(); // Initialize PDFMerger
+        $merger = new Merger;
 
         foreach ($pdfs as $pdf) {
-            $pdfMerger->addRaw($pdf);
+            $merger->addRaw($pdf);
         }
 
-        return $pdfMerger->merge();
+        return $merger->merge();
     }
 }

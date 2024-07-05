@@ -37,9 +37,7 @@ class WelcomeComposer
             ])
             ->get();
 
-        $performanceChartLabels = School::select(DB::raw('EXTRACT(YEAR FROM created_at) as year'))
-            ->distinct()
-            ->pluck('year');
+        $performanceChartLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
         $performanceChartData = $this->getPerformanceChartData();
 
@@ -71,6 +69,8 @@ class WelcomeComposer
             $query->where('challenge_participants.status', 'incomplete');
         })->get();
 
+        $monthlyRegistrationData = $this->getMonthlyRegistrationData();
+
         $view->with(
             compact(
                 'schoolCount',
@@ -83,35 +83,66 @@ class WelcomeComposer
                 'questionRepetition',
                 'worstPerformingSchools',
                 'bestPerformingSchools',
-                'incompleteParticipants'
+                'incompleteParticipants',
+                'monthlyRegistrationData'
             )
         );
     }
 
     private function getPerformanceChartData()
     {
-        $data = [];
+        $data = array_fill(1, 12, ['total_score' => 0, 'high_score' => 0, 'schools' => [], 'participant_count' => 0]);
 
         $schools = School::with([
             'participants' => function ($query) {
-                $query->select('school_id', DB::raw('EXTRACT(YEAR FROM participants.created_at) as year'), DB::raw('SUM(total_score) as total_score'))
-                    ->groupBy('school_id', 'year');
+                $query->select('school_id', DB::raw('EXTRACT(MONTH FROM participants.created_at) as month'), DB::raw('SUM(total_score) as total_score'), DB::raw('MAX(total_score) as high_score'), DB::raw('COUNT(*) as participant_count'))
+                    ->groupBy('school_id', 'month');
             }
         ])->get();
-
+    
         foreach ($schools as $school) {
             foreach ($school->participants as $participant) {
-                $year = $participant->year;
+                $month = $participant->month;
                 $totalScore = $participant->total_score;
+                $highScore = $participant->high_score;
+                $participantCount = $participant->participant_count;
 
-                if (!isset($data[$year])) {
-                    $data[$year] = 0;
+                if (!isset($data[$month]['schools'][$school->name])) {
+                    $data[$month]['schools'][$school->name] = [
+                        'total_score' => 0,
+                        'high_score' => 0,
+                        'participant_count' => 0
+                    ];
                 }
 
-                $data[$year] += $totalScore;
+                $data[$month]['total_score'] += $totalScore;
+                $data[$month]['high_score'] = max($data[$month]['high_score'], $highScore);
+                $data[$month]['schools'][$school->name]['total_score'] += $totalScore;
+                $data[$month]['schools'][$school->name]['high_score'] = max($data[$month]['schools'][$school->name]['high_score'], $highScore);
+                $data[$month]['participant_count'] += $participantCount;
             }
         }
-
+    
         return $data;
+    }
+
+
+
+    private function getMonthlyRegistrationData()
+    {
+        $schools = School::select(DB::raw('EXTRACT(MONTH FROM created_at) as month'), DB::raw('COUNT(*) as count'))
+            ->groupBy('month')
+            ->orderBy('month')
+            ->get();
+
+        $participants = Participant::select(DB::raw('EXTRACT(MONTH FROM created_at) as month'), DB::raw('COUNT(*) as count'))
+            ->groupBy('month')
+            ->orderBy('month')
+            ->get();
+
+        return [
+            'schoolRegistrations' => $schools->pluck('count', 'month')->all(),
+            'participantRegistrations' => $participants->pluck('count', 'month')->all()
+        ];
     }
 }

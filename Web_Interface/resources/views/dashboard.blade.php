@@ -19,7 +19,7 @@
                 @elseif ($section === 'settings')
                     <x-settings />
                 @elseif ($section === 'reports')
-                    <x-reports :participants="$participants" :schools="$schools" :challenge="$challenge" />
+                    <x-reports />
 
                 @else
                     <x-welcome />

@@ -16,7 +16,7 @@
                     <a href="{{ route('dashboard', ['section' => 'upload-questions']) }}" class="text-white hover:text-gray-400">Upload  Excel Files</a>
                     <a href="{{ route('dashboard', ['section' => 'set-challenges']) }}" class="text-white hover:text-gray-400">Set Challenges</a>
                     <a href="{{ route('dashboard', ['section' => 'analytics']) }}" class="text-white hover:text-gray-400">Analytics</a>
-                    <a href="{{ route('dashboard', ['section' => 'settings']) }}" class="text-white hover:text-gray-400">Reports and Emails</a>
+                    <a href="{{ route('dashboard', ['section' => 'reports']) }}" class="text-white hover:text-gray-400">Reports and Emails </a>
                   
                 </div>
             </div>
@@ -72,7 +72,7 @@
             <a href="{{ route('dashboard') }}" class="block text-white hover:text-gray-400">Overview</a>
             <a href="{{ route('dashboard') }}" class="block text-white hover:text-gray-400">Customers</a>
             <a href="{{ route('dashboard')}}" class="block text-white hover:text-gray-400">Products</a>
-            <a href="{{ route('dashboard')}}" class="block text-white hover:text-gray-400">Settings</a>
+            <a href="{{ route('dashboard')}}" class="block text-white hover:text-gray-400">Reports</a>
         </div>
     </div>
 </nav>

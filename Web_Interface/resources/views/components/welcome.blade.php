@@ -53,40 +53,48 @@
         </div>
     </div>
 
-    <!-- Main Content -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <!-- Overview Section -->
-        <div class="bg-gray-800 p-6 rounded-lg shadow-lg">
-            <div class="text-xl font-bold mb-4">Overview</div>
-            <canvas id="overviewChart"></canvas>
-        </div>
+<!-- Main Content -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- Overview Section -->
+    <div class="bg-gray-800 p-6 rounded-lg shadow-lg">
+        <div class="text-xl font-bold mb-4">Overview</div>
+        <canvas id="overviewChart"></canvas>
+    </div>
 
-        <!-- Question Repetition Section -->
-        <div class="bg-gray-800 p-6 rounded-lg shadow-lg">
-            <div class="text-xl font-bold mb-4">Question Repetition</div>
-            <ul>
-                @foreach ($questionRepetition as $participant)
-                    <li class="flex items-center mb-4">
-                        <div>
-                            <div class="text-sm font-bold">{{ $participant->user->name }}</div>
-                            <div class="text-xs text-gray-400">Repeated Questions:
-                                {{ $participant->repeated_question_count }}
-                            </div>
-                        </div>
-                    </li>
-                @endforeach
-            </ul>
-        </div>
+    <!-- Question Repetition Section -->
+    <div class="bg-gray-800 p-6 rounded-lg shadow-lg">
+        <div class="text-xl font-bold mb-4">Question Repetition</div>
+        <ul>
+            @foreach ($questionRepetition as $participant)
+                <li class="flex items-center mb-4">
+                    <div>
+                        <div class="text-sm font-bold">{{ $participant->user->name }}</div>
+                        <div class="text-xs text-gray-400">Repeated Questions: {{ $participant->repeated_question_count }}</div>
+                    </div>
+                </li>
+            @endforeach
+        </ul>
+    </div>
+<!-- School Rankings Section -->
+<div class="bg-gray-800 p-6 rounded-lg shadow-lg">
+    <div class="text-xl font-bold mb-4">School Rankings</div>
+    <canvas id="schoolRankingsChart"></canvas>
+</div>
+
+<!-- Monthly Registrations Chart Section -->
+<div class="bg-gray-800 p-6 rounded-lg shadow-lg">
+    <div class="text-xl font-bold mb-4">Monthly Registrations</div>
+    <canvas id="monthlyRegistrationsChart"></canvas>
     </div>
 </div>
 
 <!-- Additional Graph Section -->
-<!-- School Rankings Section -->
 <div class="bg-gray-800 p-6 rounded-lg shadow-lg mt-8">
-    <div class="text-xl font-bold mb-4">School Rankings</div>
-    <canvas id="schoolRankingsChart"></canvas>
+    <div class="text-xl font-bold mb-4">Additional Graph</div>
+    <canvas id="additionalGraphChart"></canvas>
 </div>
-</div>
+
+
 
 <!-- Include Chart.js for the chart -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -97,34 +105,7 @@
 
 <script>
 
-    document.addEventListener('DOMContentLoaded', function () {
-        const calendarButton = document.getElementById('calendarButton');
-        const selectedDate = document.getElementById('selectedDate');
-        const calendar = document.getElementById('calendar');
-
-        const fp = flatpickr(calendar, {
-            mode: "range",
-            dateFormat: "M d, Y",
-            inline: true,
-            onClose: function (selectedDates, dateStr, instance) {
-                selectedDate.innerText = dateStr || 'Select Date';
-                calendar.classList.remove('show');
-            }
-        });
-
-        calendarButton.addEventListener('click', function (event) {
-            event.stopPropagation();
-            calendar.classList.toggle('show');
-            fp.open();
-        });
-
-        document.addEventListener('click', function (event) {
-            if (!calendar.contains(event.target) && !calendarButton.contains(event.target)) {
-                calendar.classList.remove('show');
-            }
-        });
-    });
-
+           
     // Overview Chart
     var ctxOverview = document.getElementById('overviewChart').getContext('2d');
     var overviewChart = new Chart(ctxOverview, {
@@ -133,11 +114,18 @@
             labels: @json($performanceChartLabels),
             datasets: [{
                 label: 'Total Score',
-                data: @json(array_values($performanceChartData)),
+                data: @json(array_column($performanceChartData, 'total_score')),
                 borderColor: 'rgba(75, 192, 192, 1)',
                 backgroundColor: 'rgba(75, 192, 192, 0.2)',
                 fill: true,
                 tension: 0.4
+            }, {
+                    label: 'High Score',
+                    data: @json(array_column($performanceChartData, 'high_score')),
+                    borderColor: 'rgba(153, 102, 255, 1)',
+                    backgroundColor: 'rgba(153, 102, 255, 0.2)',
+                    fill: true,
+                    tension: 0.4
             }]
         },
         options: {
@@ -157,31 +145,119 @@
         }
     });
 
-    // School Rankings Chart
+
+
+    document.addEventListener('DOMContentLoaded', function () {
+        var performanceChartData = @json($performanceChartData);
+
+        var labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        var totalScores = Array(12).fill(0);
+        var highScores = Array(12).fill(0);
+        var participantCounts = Array(12).fill(0);
+        var schoolNames = Array(12).fill('');
+
+        // Populate data arrays
+        for (var month in performanceChartData) {
+            var monthIndex = parseInt(month) - 1;
+            totalScores[monthIndex] = performanceChartData[month].total_score || 0;
+            highScores[monthIndex] = performanceChartData[month].high_score || 0;
+            participantCounts[monthIndex] = performanceChartData[month].participant_count || 0;
+            var schools = performanceChartData[month].schools;
+            schoolNames[monthIndex] = Object.keys(schools).join(', ');
+        }
+
+    // Create the chart
     var ctxSchoolRankings = document.getElementById('schoolRankingsChart').getContext('2d');
     var schoolRankingsChart = new Chart(ctxSchoolRankings, {
-        type: 'bar',
+        type: 'line',
         data: {
-            labels: @json($schoolRankings->pluck('name')),
-            datasets: [{
-                label: 'Total Score',
-                data: @json($schoolRankings->pluck('participants.*.total_score')->collapse()),
-                backgroundColor: 'rgba(255, 99, 132, 0.2)',
-                borderColor: 'rgba(255, 99, 132, 1)',
-                borderWidth: 1
-            }, {
-                label: 'High Score',
-                data: @json($schoolRankings->pluck('participants.*.high_score')->collapse()),
-                backgroundColor: 'rgba(54, 162, 235, 0.2)',
-                borderColor: 'rgba(54, 162, 235, 1)',
-                borderWidth: 1
-            }, {
-                label: 'Number of Participants',
-                data: @json($schoolRankings->pluck('participants.*.participant_count')->collapse()),
-                backgroundColor: 'rgba(255, 206, 86, 0.2)',
-                borderColor: 'rgba(255, 206, 86, 1)',
-                borderWidth: 1
-            }]
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Total Score',
+                    data: totalScores,
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                    fill: false,
+                    tension: 0.4
+                },
+                {
+                    label: 'High Score',
+                    data: highScores,
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                    fill: false,
+                    tension: 0.4
+                },
+                {
+                    label: 'Number of Participants',
+                    data: participantCounts,
+                    borderColor: 'rgba(255, 206, 86, 1)',
+                    backgroundColor: 'rgba(255, 206, 86, 0.2)',
+                    fill: false,
+                    tension: 0.4
+                }
+            ]
+        },
+        options: {
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        color: '#fff'
+                    }
+                },
+                x: {
+                    ticks: {
+                        color: '#fff'
+                    }
+                }
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        title: function (tooltipItems) {
+                            var index = tooltipItems[0].dataIndex;
+                            return `${labels[index]}: ${schoolNames[index]}`;
+                        },
+                        label: function (tooltipItem) {
+                            var datasetLabel = tooltipItem.dataset.label || '';
+                            return `${datasetLabel}: ${tooltipItem.parsed.y}`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+    });
+
+
+
+
+                        // Monthly Registrations Chart
+                        var ctxMonthlyRegistrations = document.getElementById('monthlyRegistrationsChart').getContext('2d');
+                        var monthlyRegistrationsChart = new Chart(ctxMonthlyRegistrations, {
+                            type: 'line',
+                            data: {
+                                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+                                datasets: [
+                                    {
+                                        label: 'Schools',
+                                        data: @json(array_values($monthlyRegistrationData['schoolRegistrations'])),
+                                        borderColor: 'rgba(75, 192, 192, 1)',
+                                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                                        fill: true,
+                                        tension: 0.4
+                                    },
+                                    {
+                                        label: 'Participants',
+                                        data: @json(array_values($monthlyRegistrationData['participantRegistrations'])),
+                                        borderColor: 'rgba(153, 102, 255, 1)',
+                                        backgroundColor: 'rgba(153, 102, 255, 0.2)',
+                                        fill: true,
+                                        tension: 0.4
+                                    }
+                                ]
         },
         options: {
             scales: {
@@ -199,5 +275,8 @@
             }
         }
     });
+
+
+
 
 </script>

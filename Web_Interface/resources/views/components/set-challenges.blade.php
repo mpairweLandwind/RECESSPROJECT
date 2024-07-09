@@ -71,5 +71,28 @@
                 successMessage.style.display = 'none';
             }, 5000); // 5000ms = 5 seconds
         }
+
+        // Set default start and end times
+        const startDateInput = document.getElementById('start_date');
+        const endDateInput = document.getElementById('end_date');
+
+        function padZero(value) {
+            return value.toString().padStart(2, '0');
+        }
+
+        function formatDateTime(date) {
+            return date.getFullYear() + '-' +
+                padZero(date.getMonth() + 1) + '-' +
+                padZero(date.getDate()) + 'T' +
+                padZero(date.getHours()) + ':' +
+                padZero(date.getMinutes());
+        }
+
+        const now = new Date();
+        const startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 10, 0);
+        const endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 58);
+
+        startDateInput.value = formatDateTime(startDate);
+        endDateInput.value = formatDateTime(endDate);
     });
 </script>

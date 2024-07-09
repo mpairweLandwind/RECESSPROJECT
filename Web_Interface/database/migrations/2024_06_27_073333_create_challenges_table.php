@@ -13,11 +13,12 @@ return new class extends Migration {
         Schema::create('challenges', function (Blueprint $table) {
             $table->id();
             $table->string('title');
-            $table->text('description');
+            $table->text('description')->nullable();
             $table->dateTime('start_date');
             $table->dateTime('end_date');
             $table->integer('duration'); // Duration in minutes
             $table->integer('number_of_questions');
+            $table->enum('status', ['valid', 'invalid'])->default('invalid');
             $table->timestamps();
         });
 
@@ -25,6 +26,7 @@ return new class extends Migration {
             $table->id();
             $table->foreignId('challenge_id')->constrained()->onDelete('cascade');
             $table->foreignId('question_id')->constrained()->onDelete('cascade');
+            $table->timestamps();
         });
     }
 

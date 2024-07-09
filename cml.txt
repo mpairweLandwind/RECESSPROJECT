@@ -1,11 +1,13 @@
-java -cp .:/usr/share/java/postgresql-jdbc.jar:lib/jBCrypt-0.4.jar CML_Interface.Mainserver competition_db  alien123.com
+java -cp .:/usr/share/java/postgresql-jdbc.jar:lib/*  CML_Interface.Mainserver alien  alien123.com
 
-
-register alien Mpairwe Lauben mpairwelauben75@gmail.com 1995-06-15 123456 /home/landwind/RecessProject/alien.jpg alien123.com
+register lilian Nankunda Lilian nankundalilian@gmail.com 1995-06-15 U023 /home/landwind/RecessProject/alien.jpg lilian123.com
 javac -proc:none -cp .:/usr/share/java/postgresql-jdbc.jar:lib/* CML_Interface/Mainserver.java
 
 uploadAnswers /home/landwind/RecessProject/answers.xlsx
 
 uploadQuestions  /home/landwind/RecessProject/questions.xlsx
+
+java  CML_Interface.Client
+javac  CML_Interface/Client.java
 
 

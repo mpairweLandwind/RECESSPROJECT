@@ -18,7 +18,7 @@ return new class extends Migration {
             $table->integer('attempts_left')->default(3);
             $table->integer('total_score')->default(0);
             $table->boolean('completed')->default(false);
-            $table->integer('time_taken')->nullable();
+            $table->integer('time_taken')->default(0);
             $table->timestamps();
             $table->foreign('user_id')->references('id')->on('users');
             $table->foreign('school_id')->references('id')->on('schools');

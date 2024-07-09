@@ -17,6 +17,7 @@ class Challenge extends Model
         'end_date',
         'duration',
         'number_of_questions',
+        'status',
     ];
 
     public function administrator()

@@ -25,10 +25,11 @@ class ChallengeController extends Controller
         $request->validate([
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'start_date' => 'required|date',
-            'end_date' => 'required|date',
+            'start_date' => 'required|date|after_or_equal:today',
+            'end_date' => 'required|date|after:start_date',
             'duration' => 'required|integer|min:1',
             'number_of_questions' => 'required|integer|min:1',
+            'status' => 'nullable|string',
         ]);
 
         // Fetch random questions based on the number provided
@@ -45,14 +46,15 @@ class ChallengeController extends Controller
             'start_date' => $request->start_date,
             'end_date' => $request->end_date,
             'duration' => $request->duration,
+            'number_of_questions' => $request->number_of_questions,
         ]);
 
         // Attach questions to the challenge
-        foreach ($questions as $question) {
-            $challenge->questions()->attach($question->id);
-        }
+        // foreach ($questions as $question) {
+        //     $challenge->questions()->attach($question->id);
+        // }
 
-        return back()->with('success', 'Challenges set successfully!');
+        return back()->with('success', 'Challenge set successfully!');
     }
 
 

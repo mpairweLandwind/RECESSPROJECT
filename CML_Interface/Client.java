@@ -6,7 +6,6 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
 
-
 public class Client {
     private static BufferedReader reader;
     private static PrintWriter writer;

@@ -10,8 +10,8 @@ import java.util.*;
 import org.mindrot.jbcrypt.BCrypt;
 import java.util.concurrent.*;
 //import org.apache.xmlbeans.impl.xb.ltgfmt.TestCase.Files;
-// import org.apache.poi.ss.usermodel.*;
-// import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+//import org.apache.poi.ss.usermodel.*;
+//import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 public class Mainserver {
 
@@ -476,11 +476,12 @@ public class Mainserver {
     }
 
     private static void displayChallengeDetails(PrintWriter writer, ResultSet challengeRs) throws SQLException {
-        writer.println("Challenge: " + challengeRs.getString("title")+"Description: " + challengeRs.getString("description")+"Duration: " + challengeRs.getInt("duration") + " minutes");
-        writer.println();    
-        writer.println("Number of Questions: " + challengeRs.getInt("number_of_questions"));
+        writer.println("Challenge: " + challengeRs.getString("title")+" "+"Description: " + challengeRs.getString("description"));
+        writer.println();
+        writer.println("Number of Questions: " + challengeRs.getInt("number_of_questions")+""+"Duration: " + challengeRs.getInt("duration") + " minutes");
+        writer.println();
         writer.println("You have " + challengeRs.getInt("duration") + " minutes to complete the challenge.");
-        writer.println("Starting the challenge now...");
+        writer.println("Starting the challenge now..... press enter key to display next question");
     }
 
     private static List<String> fetchChallengeQuestions(Connection conn, int numberOfQuestions) throws SQLException {
@@ -540,9 +541,11 @@ public class Mainserver {
 
             int score = calculateScoreFromAttemptedQuestions(conn, challengeAttemptId);
 
+            updateParticipant(conn, participantId, schoolId, challengeNumber, score, duration);
+
             insertChallengeAttempt(conn, challengeNumber, participantId, score, duration);
 
-            updateParticipant(conn, participantId, schoolId, challengeNumber, score, duration);
+
 
             conn.commit();
 

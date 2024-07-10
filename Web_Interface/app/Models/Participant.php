@@ -28,11 +28,14 @@ class Participant extends Model
     {
         return $this->belongsTo(School::class);
     }
-
     public function challenges()
     {
-        return $this->belongsToMany(Challenge::class, 'challenge_participants')
-            ->withTimestamps();
+        return $this->belongsToMany(Challenge::class, 'challenge_participants')->withPivot('status');
+    }
+
+    public function attemptedQuestions()
+    {
+        return $this->hasMany(AttemptedQuestion::class);
     }
 
     public function challengeAttempts()
@@ -43,11 +46,7 @@ class Participant extends Model
     {
         return $this->hasMany(Attempt::class);
     }
-
-    public function attemptedQuestions()
-    {
-        return $this->hasMany(AttemptedQuestion::class); // Assuming AttemptedQuestion is the correct model name
-    }
+   
 
     public function challengeParticipants()
     {

@@ -30,8 +30,8 @@ class WelcomeComposer
         $schoolRankings = School::withCount('participants')
             ->with([
                 'participants' => function ($query) {
-                    $query->select('school_id', DB::raw('SUM(total_score) as total_score'), DB::raw('MAX(total_score) as high_score'))
-                        ->groupBy('school_id')
+                    $query->select('school_No', DB::raw('SUM(total_score) as total_score'), DB::raw('MAX(total_score) as high_score'))
+                        ->groupBy('school_NO')
                         ->orderBy('total_score', 'desc');
                 }
             ])
@@ -51,7 +51,7 @@ class WelcomeComposer
 
         $worstPerformingSchools = School::with([
             'participants' => function ($query) {
-                $query->select('school_id', DB::raw('SUM(total_score) as total_score'))
+                $query->select('school_id', DB::raw('CAST(SUM(total_score) AS INTEGER) as total_score'))
                     ->groupBy('school_id')
                     ->orderBy('total_score', 'asc');
             }
@@ -59,7 +59,7 @@ class WelcomeComposer
 
         $bestPerformingSchools = School::with([
             'participants' => function ($query) {
-                $query->select('school_id', DB::raw('SUM(total_score) as total_score'))
+                $query->select('school_id', DB::raw('CAST(SUM(total_score) AS INTEGER) as total_score'))
                     ->groupBy('school_id')
                     ->orderBy('total_score', 'desc');
             }
@@ -125,8 +125,6 @@ class WelcomeComposer
     
         return $data;
     }
-
-
 
     private function getMonthlyRegistrationData()
     {

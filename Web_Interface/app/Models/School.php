@@ -24,7 +24,7 @@ class School extends Model
     {
         return $this->hasMany(Participant::class);
     }
-
+    
     public function representative()
     {
         return $this->belongsTo(User::class, 'representative_id');

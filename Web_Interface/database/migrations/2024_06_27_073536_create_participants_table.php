@@ -14,7 +14,7 @@ return new class extends Migration {
             $table->id();
             $table->Integer('user_id');
             $table->Integer('school_id');
-            $table->Integer('challenge_id');
+            $table->Integer('challenge_id')->nullable();
             $table->integer('attempts_left')->default(3);
             $table->integer('total_score')->default(0);
             $table->boolean('completed')->default(false);
@@ -23,7 +23,7 @@ return new class extends Migration {
             $table->foreign('user_id')->references('id')->on('users');
             $table->foreign('school_id')->references('id')->on('schools');
             $table->foreign('challenge_id')->references('id')->on('challenges');
-            $table->unique(['user_id', 'school_id', 'challenge_id']);
+          
         });
     }
 

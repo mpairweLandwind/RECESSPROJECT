@@ -5,11 +5,14 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.util.concurrent.*;
 
 public class Client {
     private static BufferedReader reader;
     private static PrintWriter writer;
     private static BufferedReader userReader = new BufferedReader(new InputStreamReader(System.in));
+    private static ExecutorService executorService = Executors.newSingleThreadExecutor();
+    private static boolean awaitingAnswer = false;
 
     public static void main(String[] args) {
         try (Socket socket = new Socket("localhost", 8888)) {
@@ -35,6 +38,8 @@ public class Client {
             }
         } catch (IOException e) {
             e.printStackTrace();
+        } finally {
+            executorService.shutdown();
         }
     }
 
@@ -42,49 +47,62 @@ public class Client {
         String response;
         while ((response = readServerResponse()) != null) {
             if (response.startsWith("Challenge")) {
-                System.out.println(response);
-                handleChallenge();
+                handleChallenge(response);
             } else if (response.startsWith("availablechallenges ")) {
                 handleAvailableChallenges(response.substring("availablechallenges ".length()));
-            } else {
+            } else if (response.startsWith("availableapplicants")) {
+
+                handleAvailableApplicants(response.substring("availableapplicants ".length()));
+            }
+
+            else {
                 System.out.println(response);
                 break;
             }
         }
     }
 
-    private static void handleChallenge() throws IOException {
-        String response;
-        boolean awaitingAnswer = false;
+    private static void handleChallenge(String response) throws IOException {
+        System.out.println(response); // Display challenge details
         long startTime = System.currentTimeMillis();
         long challengeDuration = 10 * 60 * 1000; // Example: 10 minutes in milliseconds
 
-        while ((response = readServerResponse()) != null) {
-            if (response.startsWith("Question: ")) {
-                System.out.println(response); // Display the question
-                awaitingAnswer = true;
-            } else if (awaitingAnswer && response.equals("Enter your answer:")) {
-                String answer = readUserInput("Answer: ");
-                sendCommandToServer(answer);
-                awaitingAnswer = false;
-            } else if (response.startsWith("Challenge submitted successfully.") || response.startsWith("Your score: ")) {
-                System.out.println(response);
-                break;
-            } else {
-                System.out.println(response);
-            }
+        executorService.submit(() -> {
+            try {
+                while (System.currentTimeMillis() - startTime < challengeDuration) {
+                    if (awaitingAnswer) {
+                        String answer = readUserInput("Answer: ");
+                        sendCommandToServer(answer);
+                        awaitingAnswer = false;
+                    }
 
-            if (awaitingAnswer) {
-                long elapsedTime = System.currentTimeMillis() - startTime;
-                long remainingTime = challengeDuration - elapsedTime;
-                System.out.printf("Remaining time: %d minutes %d seconds%n", 
-                        remainingTime / 60000, (remainingTime / 1000) % 60);
+                    String challengeResponse = readServerResponse();
+                    if (challengeResponse == null)
+                        break;
 
-                // Wait for the user to press Enter before displaying the next question
-                System.out.println("Press Enter to display the next question...");
-                userReader.readLine();
+                    if (challengeResponse.startsWith("Question: ")) {
+                        System.out.println(challengeResponse); // Display the question
+                        awaitingAnswer = true;
+                    } else if (challengeResponse.startsWith("Challenge submitted successfully.")
+                            || challengeResponse.startsWith("Your score: ")) {
+                        System.out.println(challengeResponse);
+                        break;
+                    } else if (!challengeResponse.startsWith("Remaining time:")) {
+                        System.out.println(challengeResponse);
+                    }
+
+                    long elapsedTime = System.currentTimeMillis() - startTime;
+                    long remainingTime = challengeDuration - elapsedTime;
+                    System.out.printf("Remaining time: %d minutes %d seconds%n",
+                            remainingTime / 60000, (remainingTime / 1000) % 60);
+
+                    // Add a short sleep to prevent busy waiting
+                    Thread.sleep(1000);
+                }
+            } catch (IOException | InterruptedException e) {
+                e.printStackTrace();
             }
-        }
+        });
     }
 
     private static String readServerResponse() throws IOException {
@@ -126,16 +144,37 @@ public class Client {
         sendCommandToServer(command);
     }
 
+    private static void handleAvailableApplicants(String statementData) {
+        String[] rows = statementData.split("\t");
+
+        // Print table headers
+        System.out.println("                           Available Applicants \n");
+        System.out.println(
+                "Username     Firstname      LastName      School Registration Number  ");
+
+        for (String row : rows) {
+            // Split each row into individual columns
+            String[] columns = row.split(" ");
+            // Print each column separated by spaces
+            for (String column : columns) {
+                System.out.print(column + "    ");
+            }
+            System.out.println(); // Move to the next row
+        }
+        String command = readUserInput("Enter command: ");
+        sendCommandToServer(command);
+    }
+
     private static void printCommandsHelp() {
-        String[] commands = { 
-            "login <username> <password> - Log in to the system usage e.g login lee lee123.com  ",
-            "register <username> <firstname> <lastname> <email> <dob> <school_reg_no> <image_path> - Register a new user",
-            "viewChallenges - View all available challenges  e.g  viewchallenges  ",
-            "attemptChallenge <challenge_ID> - Attempt a specified challenge e.g attemptchallenge  5 ",
-            "viewApplicants - View all applicants pending confirmation",
-            "confirm <yes/no> <username> - Confirm or reject an applicant",
-            "viewReports - View analytics and reports",
-            "exit - Exit the client"
+        String[] commands = {
+                "login <username> <password> - Log in to the system usage e.g login lee lee123.com  ",
+                "register <username> <firstname> <lastname> <email> <dob> <school_reg_no> <image_path> - Register a new user",
+                "viewChallenges - View all available challenges  e.g  viewchallenges  ",
+                "attemptChallenge <challenge_ID> - Attempt a specified challenge e.g attemptchallenge  5 ",
+                "viewApplicants - View all applicants pending confirmation",
+                "confirm <yes/no> <username> - Confirm or reject an applicant",
+                "viewReports - View analytics and reports",
+                "exit - Exit the client"
         };
 
         // Find the maximum width of the command strings

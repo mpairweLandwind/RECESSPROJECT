@@ -24,9 +24,10 @@ return new class extends Migration {
             $table->rememberToken();
             $table->foreignId('current_team_id')->nullable();
             $table->string('profile_photo', 2048)->nullable();
+            $table->enum('status', ['active', 'inactive'])->default('active');
             $table->timestamps();
 
-            //$table->foreign(('school_reg_no'))->references('registration_number')->on('schools')->onDelete('cascade');
+           
         });
 
 

@@ -7,11 +7,11 @@ import java.nio.file.Paths;
 import java.net.*;
 import java.sql.*;
 import java.util.*;
+import javax.mail.*;
+import javax.mail.internet.*;
 import org.mindrot.jbcrypt.BCrypt;
 import java.util.concurrent.*;
-//import org.apache.xmlbeans.impl.xb.ltgfmt.TestCase.Files;
-//import org.apache.poi.ss.usermodel.*;
-//import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import javax.mail.PasswordAuthentication;
 
 public class Mainserver {
 
@@ -19,6 +19,9 @@ public class Mainserver {
     private static String dbPassword = "alien123.com";
     private static String dbUrl = "jdbc:postgresql://localhost:5432/competition_db";
     private static Map<String, Boolean> loggedInClients = new HashMap<>();
+    private static String smtpHost = "smtp.gmail.com"; // Replace with your SMTP host
+    private static String smtpUsername = "mpairwelauben375@gmail.com";
+    private static String smtpPassword = "kotd nvgo cdvx dfgo";
 
     public static void main(String[] args) {
         if (args.length != 2) {
@@ -213,7 +216,7 @@ public class Mainserver {
         }
 
         try (Connection conn = connectToDatabase()) {
-            String sql = "INSERT INTO users (username, firstname, lastname, email, date_of_birth, school_reg_no, password, profile_photo) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+            String sql = "INSERT INTO users (username, firstname, lastname, email, date_of_birth, school_reg_no, password, profile_photo, status) VALUES (?,?, ?, ?, ?, ?, ?, ?, ?)";
             PreparedStatement stmt = conn.prepareStatement(sql);
             stmt.setString(1, username);
             stmt.setString(2, firstname);
@@ -223,12 +226,63 @@ public class Mainserver {
             stmt.setString(6, school_reg_no);
             stmt.setString(7, hashedPassword);
             stmt.setString(8, profilePhotoPath);
+            stmt.setString(9, "inactive");
             stmt.executeUpdate();
+            // Retrieve the representative's email
+            String repEmail = getSchoolRepresentativeEmail(conn, school_reg_no);
+            if (repEmail != null) {
+                sendEmailToSchoolRep(repEmail, username, firstname, lastname, email, school_reg_no);
+            }
 
             writer.println("Registration successful!");
         } catch (SQLException e) {
             writer.println("Registration failed: " + e.getMessage());
         }
+    }
+
+    private static void sendEmailToSchoolRep(String recipientEmail, String username, String firstname, String lastname,
+            String email, String schoolRegNo) {
+        String from = smtpUsername;
+
+        String host = smtpHost;
+
+        Properties props = new Properties();
+        props.put("mail.smtp.auth", "true");
+        props.put("mail.smtp.starttls.enable", "true");
+        props.put("mail.smtp.host", host);
+        props.put("mail.smtp.port", "587");
+
+        Session session = Session.getInstance(props, new javax.mail.Authenticator() {
+            protected PasswordAuthentication getPasswordAuthentication() {
+                return new PasswordAuthentication(smtpUsername, smtpPassword);
+            }
+        });
+
+        try {
+            Message message = new MimeMessage(session);
+            message.setFrom(new InternetAddress(from));
+            message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(recipientEmail));
+            message.setSubject("New User Registration: " + firstname + " " + lastname);
+            message.setText("A new user has been registered.\n\nName: " + firstname + " " + lastname + "\nUsername: "
+                    + username + "\nEmail: " + email + "\nSchool Registration Number: " + schoolRegNo);
+            Transport.send(message);
+            System.out.println("Email sent successfully to " + recipientEmail);
+        } catch (MessagingException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static String getSchoolRepresentativeEmail(Connection conn, String schoolRegNo) throws SQLException {
+        String sql = "SELECT email_of_representative FROM schools WHERE registration_number = ?";
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, schoolRegNo);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getString("email_of_representative");
+                }
+            }
+        }
+        return null;
     }
 
     private static void handleConfirmCommand(String[] parts, PrintWriter writer, String loggedInUser) {
@@ -241,7 +295,18 @@ public class Mainserver {
         String username = parts[2];
 
         try (Connection conn = connectToDatabase()) {
-            // Get the school_id of the logged-in user
+            // Check if the logged-in user is a school representative
+            String repQuery = "SELECT role FROM users WHERE username = ?";
+            PreparedStatement repStmt = conn.prepareStatement(repQuery);
+            repStmt.setString(1, loggedInUser);
+            ResultSet repRs = repStmt.executeQuery();
+
+            if (!repRs.next() || !repRs.getString("role").equals("representative")) {
+                writer.println("You must be a school representative to confirm participants.");
+                return;
+            }
+
+            // Get the school_reg_no of the logged-in user
             String schoolQuery = "SELECT school_reg_no FROM users WHERE username = ?";
             PreparedStatement schoolStmt = conn.prepareStatement(schoolQuery);
             schoolStmt.setString(1, loggedInUser);
@@ -254,7 +319,7 @@ public class Mainserver {
 
             String schoolRegNo = schoolRs.getString("school_reg_no");
 
-            // Get the user_id and school_id of the participant
+            // Get the user_id and school_reg_no of the participant
             String participantQuery = "SELECT id, school_reg_no FROM users WHERE username = ?";
             PreparedStatement participantStmt = conn.prepareStatement(participantQuery);
             participantStmt.setString(1, username);
@@ -273,16 +338,38 @@ public class Mainserver {
                 return;
             }
 
+            // Get the school_id from the schools table using the participant's
+            // school_reg_no
+            String schoolIdQuery = "SELECT id FROM schools WHERE registration_number = ?";
+            PreparedStatement schoolIdStmt = conn.prepareStatement(schoolIdQuery);
+            schoolIdStmt.setString(1, participantSchoolRegNo);
+            ResultSet schoolIdRs = schoolIdStmt.executeQuery();
+
+            if (!schoolIdRs.next()) {
+                writer.println("School not found for the participant.");
+                return;
+            }
+
+            int schoolId = schoolIdRs.getInt("id");
+
             if (confirmation.equalsIgnoreCase("yes")) {
-                // Update participant status to confirmed
-                String updateQuery = "UPDATE participants SET confirmed = true WHERE user_id = ?";
+                // Update participant status to active
+                String updateQuery = "UPDATE users SET status = 'active' WHERE id = ?";
                 PreparedStatement updateStmt = conn.prepareStatement(updateQuery);
                 updateStmt.setInt(1, userId);
                 updateStmt.executeUpdate();
-                writer.println("User " + username + " confirmed successfully.");
+
+                // Insert the user into the participants table
+                String insertParticipantQuery = "INSERT INTO participants (user_id, school_id, challenge_id, attempts_left, total_score, completed, time_taken, created_at, updated_at) VALUES (?, ?, NULL, 3, 0, false, 0, now(), now())";
+                PreparedStatement insertParticipantStmt = conn.prepareStatement(insertParticipantQuery);
+                insertParticipantStmt.setInt(1, userId);
+                insertParticipantStmt.setInt(2, schoolId); // Use school_id from schools table
+                insertParticipantStmt.executeUpdate();
+
+                writer.println("User " + username + " confirmed successfully and added to participants.");
             } else if (confirmation.equalsIgnoreCase("no")) {
                 // Move user to rejected_participants table and delete from users table
-                String rejectQuery = "INSERT INTO rejected_participants (user_id, username, firstname, lastname, school_id, reason, email, date_of_birth, created_at, updated_at) "
+                String rejectQuery = "INSERT INTO rejected_participants (user_id, username, firstname, lastname, school_reg_no, reason, email, date_of_birth, created_at, updated_at) "
                         + "SELECT id, username, firstname, lastname, school_reg_no, 'Rejected by school representative', email, date_of_birth, now(), now() FROM users WHERE id = ?";
                 PreparedStatement rejectStmt = conn.prepareStatement(rejectQuery);
                 rejectStmt.setInt(1, userId);
@@ -301,6 +388,7 @@ public class Mainserver {
             writer.println("Confirmation failed: " + e.getMessage());
         }
     }
+
 
 
     private static void handleViewChallengesCommand(PrintWriter writer) {
@@ -381,31 +469,35 @@ public class Mainserver {
 
             String schoolRegNo = repRs.getString("school_reg_no");
 
-            // Get participants' data from the participants table where the school_reg_no
-            // matches
-            String sql = "SELECT u.username, u.firstname, u.lastname " +
-                    "FROM users u " +
-                    "JOIN participants p ON u.id = p.user_id " +
-                    "JOIN schools s ON p.school_id = s.id " +
-                    "WHERE s.registration_number = ?";
+            // Get users' data from the users table where the school_reg_no matches and role
+            // is 'participant'
+            String sql = "SELECT username, firstname, lastname, school_reg_no " +
+                    "FROM users " +
+                    "WHERE school_reg_no = ? AND role = 'participant'";
             PreparedStatement stmt = conn.prepareStatement(sql);
             stmt.setString(1, schoolRegNo);
             ResultSet rs = stmt.executeQuery();
 
-            writer.println("Applicants:");
-
+            StringBuilder statementData = new StringBuilder();
             while (rs.next()) {
                 String username = rs.getString("username");
                 String firstname = rs.getString("firstname");
                 String lastname = rs.getString("lastname");
+                String schoolRegNoValue = rs.getString("school_reg_no");
 
-                writer.printf("Username: %s, Firstname: %s, Lastname: %s%n", username, firstname, lastname);
+                // Append each value along with spaces to the statementData
+                statementData.append(username).append("  ")
+                        .append(firstname).append("  ")
+                        .append(lastname).append("  ")
+                        .append(schoolRegNoValue).append("\t");
             }
+            writer.println("availableapplicants " + statementData.toString());
 
         } catch (SQLException e) {
             writer.println("Failed to retrieve applicants: " + e.getMessage());
         }
     }
+
 
     private static void handleAttemptChallengeCommand(String[] parts, String username, PrintWriter writer) {
         if (parts.length != 2) {
@@ -476,10 +568,12 @@ public class Mainserver {
     }
 
     private static void displayChallengeDetails(PrintWriter writer, ResultSet challengeRs) throws SQLException {
-        writer.println("Challenge: " + challengeRs.getString("title")+" "+"Description: " + challengeRs.getString("description"));
-        writer.println();
-        writer.println("Number of Questions: " + challengeRs.getInt("number_of_questions")+""+"Duration: " + challengeRs.getInt("duration") + " minutes");
-        writer.println();
+        writer.println("Challenge: " + challengeRs.getString("title      ") + "Description: "
+                + challengeRs.getString("description"));
+
+        writer.println("Number of Questions: " + challengeRs.getInt("number_of_questions       ") + "Duration: "
+                + challengeRs.getInt("duration") + " minutes");
+
         writer.println("You have " + challengeRs.getInt("duration") + " minutes to complete the challenge.");
         writer.println("Starting the challenge now..... press enter key to display next question");
     }

@@ -30,8 +30,8 @@ class WelcomeComposer
         $schoolRankings = School::withCount('participants')
             ->with([
                 'participants' => function ($query) {
-                    $query->select('school_No', DB::raw('SUM(total_score) as total_score'), DB::raw('MAX(total_score) as high_score'))
-                        ->groupBy('school_NO')
+                    $query->select('school_id', DB::raw('SUM(total_score) as total_score'), DB::raw('MAX(total_score) as high_score'))
+                        ->groupBy('school_id')
                         ->orderBy('total_score', 'desc');
                 }
             ])

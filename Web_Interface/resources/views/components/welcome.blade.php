@@ -90,10 +90,27 @@
 
 <!-- Additional Graph Section -->
 <div class="bg-gray-800 p-6 rounded-lg shadow-lg mt-8">
-    <div class="text-xl font-bold mb-4">Additional Graph</div>
-    <canvas id="additionalGraphChart"></canvas>
+        <div class="text-xl font-bold mb-4">Best Students in Mathematics Challenge</div>
+        <table class="min-w-full bg-gray-800 text-white border-collapse">
+            <thead>
+                <tr>
+                    <th class="py-2 px-4 border-b border-gray-700">Name</th>
+                    <th class="py-2 px-4 border-b border-gray-700">School</th>
+                    <th class="py-2 px-4 border-b border-gray-700">Score</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach ($topParticipants as $participant)
+                    <tr>
+                        <td class="py-2 px-4 border-b border-gray-700">{{ $participant->user->name }}</td>
+                        <td class="py-2 px-4 border-b border-gray-700">{{ $participant->school->name }}</td>
+                        <td class="py-2 px-4 border-b border-gray-700">{{ $participant->total_score }}</td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+    </div>
 </div>
-
 
 
 <!-- Include Chart.js for the chart -->

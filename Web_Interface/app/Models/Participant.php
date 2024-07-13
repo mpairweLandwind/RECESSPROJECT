@@ -10,7 +10,7 @@ class Participant extends Model
     use HasFactory;
 
     protected $fillable = [
-        'user_id',
+        'participant_id',
         'school_id',
         'challenge_id',
         'attempts_left',

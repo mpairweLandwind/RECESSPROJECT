@@ -9,12 +9,14 @@ import java.sql.*;
 import java.util.*;
 import javax.mail.*;
 import javax.mail.internet.*;
+import java.time.*;
 import org.mindrot.jbcrypt.BCrypt;
-import java.util.concurrent.*;
 import javax.mail.PasswordAuthentication;
+import java.util.concurrent.*;
 
 public class Mainserver {
 
+    private static final ExecutorService executorService = Executors.newCachedThreadPool();
     private static String dbUsername = "alien";
     private static String dbPassword = "alien123.com";
     private static String dbUrl = "jdbc:postgresql://localhost:5432/competition_db";
@@ -38,6 +40,7 @@ public class Mainserver {
             while (true) {
                 Socket clientSocket = serverSocket.accept();
                 System.out.println("Client connected!");
+
 
                 Thread thread = new Thread(() -> {
                     try (
@@ -87,7 +90,7 @@ public class Mainserver {
                                     handleViewApplicantsCommand(writer, username);
                                     break;
                                 case "attemptchallenge":
-                                    handleAttemptChallengeCommand(parts, username, writer);
+                                    handleAttemptChallengeCommand(parts, username, writer, reader);
                                     break;
                                 case "confirm":
                                     handleConfirmCommand(parts, writer, username);
@@ -360,7 +363,7 @@ public class Mainserver {
                 updateStmt.executeUpdate();
 
                 // Insert the user into the participants table
-                String insertParticipantQuery = "INSERT INTO participants (user_id, school_id, challenge_id, attempts_left, total_score, completed, time_taken, created_at, updated_at) VALUES (?, ?, NULL, 3, 0, false, 0, now(), now())";
+                String insertParticipantQuery = "INSERT INTO participants (participant_id, school_id, challenge_id, attempts_left, total_score, completed, time_taken, created_at, updated_at) VALUES (?, ?, NULL, 3, 0, false, 0, now(), now())";
                 PreparedStatement insertParticipantStmt = conn.prepareStatement(insertParticipantQuery);
                 insertParticipantStmt.setInt(1, userId);
                 insertParticipantStmt.setInt(2, schoolId); // Use school_id from schools table
@@ -369,7 +372,7 @@ public class Mainserver {
                 writer.println("User " + username + " confirmed successfully and added to participants.");
             } else if (confirmation.equalsIgnoreCase("no")) {
                 // Move user to rejected_participants table and delete from users table
-                String rejectQuery = "INSERT INTO rejected_participants (user_id, username, firstname, lastname, school_reg_no, reason, email, date_of_birth, created_at, updated_at) "
+                String rejectQuery = "INSERT INTO rejected_participants (participant_id, username, firstname, lastname, school_reg_no, reason, email, date_of_birth, created_at, updated_at) "
                         + "SELECT id, username, firstname, lastname, school_reg_no, 'Rejected by school representative', email, date_of_birth, now(), now() FROM users WHERE id = ?";
                 PreparedStatement rejectStmt = conn.prepareStatement(rejectQuery);
                 rejectStmt.setInt(1, userId);
@@ -393,7 +396,9 @@ public class Mainserver {
 
     private static void handleViewChallengesCommand(PrintWriter writer) {
         try (Connection conn = connectToDatabase()) {
-            String sql = "SELECT * FROM challenges WHERE challenges.status = 'invalid'";
+            // Update SQL query to select challenges where current date is between
+            // start_date and end_date
+            String sql = "SELECT * FROM challenges WHERE NOW() BETWEEN start_date AND end_date ";
             Statement stmt = conn.createStatement();
             ResultSet rs = stmt.executeQuery(sql);
 
@@ -499,7 +504,8 @@ public class Mainserver {
     }
 
 
-    private static void handleAttemptChallengeCommand(String[] parts, String username, PrintWriter writer) {
+    private static void handleAttemptChallengeCommand(String[] parts, String username, PrintWriter writer,
+            BufferedReader reader) {
         if (parts.length != 2) {
             writer.println("Usage: attemptChallenge <challengeNumber>");
             return;
@@ -513,6 +519,26 @@ public class Mainserver {
             return;
         }
 
+        CountDownLatch latch = new CountDownLatch(1);
+
+        executorService.submit(() -> {
+            try {
+                attemptChallenge(challengeNumber, username, writer, reader);
+            } finally {
+                latch.countDown();
+            }
+        });
+
+        try {
+            latch.await(); // Wait for the challenge attempt to complete
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            writer.println("Challenge attempt was interrupted.");
+        }
+    }
+
+    private static void attemptChallenge(int challengeNumber, String username, PrintWriter writer,
+            BufferedReader reader) {
         try (Connection conn = connectToDatabase()) {
             // Check if the user is a participant
             String userQuery = "SELECT id, role FROM users WHERE username = ?";
@@ -535,7 +561,7 @@ public class Mainserver {
             }
 
             // Retrieve and display challenge details
-            String challengeQuery = "SELECT * FROM challenges WHERE id = ? AND status = 'invalid'";
+            String challengeQuery = "SELECT * FROM challenges WHERE id = ? ";
             PreparedStatement challengeStmt = conn.prepareStatement(challengeQuery);
             challengeStmt.setInt(1, challengeNumber);
             ResultSet challengeRs = challengeStmt.executeQuery();
@@ -545,9 +571,14 @@ public class Mainserver {
 
                 List<String> questions = fetchChallengeQuestions(conn, challengeRs.getInt("number_of_questions"));
 
+                // Send username to the client
+                writer.println("username: " + username);
+                writer.flush();
+
                 startChallengeTimer(challengeNumber, username, questions, writer, challengeRs.getInt("duration"));
 
-                collectAndSubmitAnswers(challengeNumber, username, questions, writer, challengeRs.getInt("duration"));
+                collectAndSubmitAnswers(challengeNumber, username, questions, writer, reader,
+                        challengeRs.getInt("duration"));
 
             } else {
                 writer.println("Challenge not found or not valid.");
@@ -555,128 +586,146 @@ public class Mainserver {
 
         } catch (SQLException e) {
             writer.println("Failed to retrieve challenge: " + e.getMessage());
-        }
+            writer.flush();
+      }
+  }
+
+private static int getRemainingAttempts(Connection conn, int userId, int challengeNumber) throws SQLException {
+    String checkAttemptsQuery = "SELECT attempts_left FROM participants WHERE participant_id = ? AND challenge_id = ?";
+    PreparedStatement checkStmt = conn.prepareStatement(checkAttemptsQuery);
+    checkStmt.setInt(1, userId);
+    checkStmt.setInt(2, challengeNumber);
+    ResultSet rs = checkStmt.executeQuery();
+    return rs.next() ? rs.getInt("attempts_left") : 3;
+}
+
+private static void displayChallengeDetails(PrintWriter writer, ResultSet challengeRs) throws SQLException {
+    writer.println("Challenge: " + challengeRs.getString("title") + " " + "Description: "
+            + challengeRs.getString("description") + " " + "Number of Questions: "
+            + challengeRs.getInt("number_of_questions") + "" + "Duration: "
+            + challengeRs.getInt("duration") + " minutes");
+    writer.println("You have " + challengeRs.getInt("duration") + " minutes to complete the challenge." + " "
+            + "Starting the challenge now..... press enter key to display the next question");
+    writer.flush();
+}
+
+private static List<String> fetchChallengeQuestions(Connection conn, int numberOfQuestions) throws SQLException {
+    List<String> questions = new ArrayList<>();
+    String questionQuery = "SELECT question_text FROM questions ORDER BY RANDOM() LIMIT ?";
+    PreparedStatement questionStmt = conn.prepareStatement(questionQuery);
+    questionStmt.setInt(1, numberOfQuestions);
+    ResultSet questionRs = questionStmt.executeQuery();
+
+    while (questionRs.next()) {
+        questions.add(questionRs.getString("question_text"));
     }
 
-    private static int getRemainingAttempts(Connection conn, int userId, int challengeNumber) throws SQLException {
-        String checkAttemptsQuery = "SELECT attempts_left FROM participants WHERE user_id = ? AND challenge_id = ?";
-        PreparedStatement checkStmt = conn.prepareStatement(checkAttemptsQuery);
-        checkStmt.setInt(1, userId);
-        checkStmt.setInt(2, challengeNumber);
-        ResultSet rs = checkStmt.executeQuery();
-        return rs.next() ? rs.getInt("attempts_left") : 3;
-    }
+    return questions;
+}
 
-    private static void displayChallengeDetails(PrintWriter writer, ResultSet challengeRs) throws SQLException {
-        writer.println("Challenge: " + challengeRs.getString("title      ") + "Description: "
-                + challengeRs.getString("description"));
-
-        writer.println("Number of Questions: " + challengeRs.getInt("number_of_questions       ") + "Duration: "
-                + challengeRs.getInt("duration") + " minutes");
-
-        writer.println("You have " + challengeRs.getInt("duration") + " minutes to complete the challenge.");
-        writer.println("Starting the challenge now..... press enter key to display next question");
-    }
-
-    private static List<String> fetchChallengeQuestions(Connection conn, int numberOfQuestions) throws SQLException {
-        List<String> questions = new ArrayList<>();
-        String questionQuery = "SELECT question_text FROM questions ORDER BY RANDOM() LIMIT ?";
-        PreparedStatement questionStmt = conn.prepareStatement(questionQuery);
-        questionStmt.setInt(1, numberOfQuestions);
-        ResultSet questionRs = questionStmt.executeQuery();
-
-        while (questionRs.next()) {
-            questions.add(questionRs.getString("question_text"));
-        }
-
-        return questions;
-    }
-
-    private static void startChallengeTimer(int challengeNumber, String username, List<String> questions,
-            PrintWriter writer, int duration) {
-        ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
-        scheduler.schedule(() -> {
-            try {
-                submitChallenge(challengeNumber, username, questions, new ArrayList<>(), writer, duration);
-            } catch (SQLException e) {
-                writer.println("Failed to submit the challenge: " + e.getMessage());
-            }
-        }, duration, TimeUnit.MINUTES);
-    }
-
-    private static void collectAndSubmitAnswers(int challengeNumber, String username, List<String> questions,
-            PrintWriter writer, int duration) {
-        new Thread(() -> {
-            try (BufferedReader clientInput = new BufferedReader(new InputStreamReader(System.in))) {
-                List<String> answers = new ArrayList<>();
-                for (String question : questions) {
-                    writer.println("Question: " + question);
-                    writer.println("Enter your answer:");
-                    String answer = clientInput.readLine();
-                    answers.add(answer);
-                }
-                submitChallenge(challengeNumber, username, questions, answers, writer, duration);
-            } catch (IOException | SQLException e) {
-                writer.println("Error during challenge attempt: " + e.getMessage());
-            }
-        }).start();
-    }
-
-    private static void submitChallenge(int challengeNumber, String username, List<String> questions,
-            List<String> userAnswers, PrintWriter writer, int duration) throws SQLException {
-        int participantId = getParticipantIdByUsername(username);
-        String schoolId = getSchoolIdByUsername(username);
-
-        try (Connection conn = connectToDatabase()) {
-            conn.setAutoCommit(false);
-
-            int challengeAttemptId = saveAttemptedChallenge(conn, participantId, challengeNumber, questions,
-                    userAnswers);
-
-            int score = calculateScoreFromAttemptedQuestions(conn, challengeAttemptId);
-
-            updateParticipant(conn, participantId, schoolId, challengeNumber, score, duration);
-
-            insertChallengeAttempt(conn, challengeNumber, participantId, score, duration);
-
-
-
-            conn.commit();
-
-            writer.println("Challenge submitted successfully. Your score: " + score);
+private static void startChallengeTimer(int challengeNumber, String username, List<String> questions,
+        PrintWriter writer, int duration) {
+    ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+    scheduler.schedule(() -> {
+        try {
+            submitChallenge(challengeNumber, username, questions, new ArrayList<>(), writer, duration);
         } catch (SQLException e) {
-            handleSQLException(e, writer);
+            writer.println("Failed to submit the challenge: " + e.getMessage());
+            writer.flush();
         }
-    }
+    }, duration, TimeUnit.MINUTES);
+}
 
-    private static void insertChallengeAttempt(Connection conn, int challengeNumber, int participantId, int score,
+private static void collectAndSubmitAnswers(int challengeNumber, String username, List<String> questions,
+                PrintWriter writer, BufferedReader reader, int duration) {
+
+    Instant startTime = Instant.now();
+    try {
+        List<String> answers = new ArrayList<>();
+        for (String question : questions) {
+            writer.println("Question: " + question);
+            writer.flush(); // Ensure the question is sent to the client
+            writer.println("Enter your answer:");
+            writer.flush(); // Ensure the prompt is sent to the client
+
+            String answer = reader.readLine(); // Read the user's answer
+            answers.add(answer);
+
+            // Calculate remaining time
+            Instant currentTime = Instant.now();
+            Duration elapsed = Duration.between(startTime, currentTime);
+            long remainingTime = duration - elapsed.toMinutes();
+
+            writer.println("Answer received. Press Enter to display the next question. Remaining time: " + remainingTime
+                    + " minutes");
+            writer.flush(); // Ensure the prompt is sent to the client// Ensure the prompt is sent to the
+                            // client
+            reader.readLine(); // Wait for the user to press Enter
+        }
+        writer.println("End of questions");
+        writer.flush(); // Ensure the end of questions message is sent to the client
+        submitChallenge(challengeNumber, username, questions, answers, writer, duration);
+    } catch (IOException | SQLException e) {
+        writer.println("Error during challenge attempt: " + e.getMessage());
+        writer.flush(); // Ensure the error message is sent to the client
+    }
+}
+
+private static void submitChallenge(int challengeNumber, String username, List<String> questions,
+        List<String> userAnswers, PrintWriter writer, int duration) throws SQLException {
+    int participantId = getParticipantIdByUsername(username);
+    Long schoolId = getSchoolIdByUsername(username);
+
+    try (Connection conn = connectToDatabase()) {
+        conn.setAutoCommit(false);
+
+        int challengeAttemptId = saveAttemptedChallenge(conn, participantId, challengeNumber, questions, userAnswers);
+
+        ScoreResult scoreResult = calculateScoreFromAttemptedQuestions(conn, challengeAttemptId);
+
+        updateParticipant(conn, participantId, schoolId, challengeNumber, scoreResult, duration);
+
+        insertChallengeAttempt(conn, challengeNumber, participantId, scoreResult, duration);
+
+        conn.commit();
+
+        writer.println("Challenge submitted successfully. Your score: " + scoreResult);
+        writer.flush();
+    } catch (SQLException e) {
+        handleSQLException(e, writer);
+    }
+}
+
+
+    private static void insertChallengeAttempt(Connection conn, int challengeNumber, int participantId, ScoreResult scoreResult,
             int duration) throws SQLException {
         String insertAttempt = "INSERT INTO challenge_attempts (challenge_id, participant_id, score, time_taken, completed, created_at, updated_at) VALUES (?, ?, ?, ?, ?, NOW(), NOW())";
         try (PreparedStatement insertStmt = conn.prepareStatement(insertAttempt)) {
             insertStmt.setInt(1, challengeNumber);
             insertStmt.setInt(2, participantId);
-            insertStmt.setInt(3, score);
+            insertStmt.setInt(3, scoreResult.getTotalScore());            
             insertStmt.setInt(4, duration);
             insertStmt.setBoolean(5, true);
             insertStmt.executeUpdate();
         }
     }
 
-    private static void updateParticipant(Connection conn, int participantId, String schoolId, int challengeNumber,
-            int score, int duration) throws SQLException {
-        String updateParticipantQuery = "INSERT INTO participants (user_id, school_id, challenge_id, attempts_left, total_score, time_taken) "
+    private static void updateParticipant(Connection conn, int participantId, Long schoolId, int challengeNumber,
+            ScoreResult scoreResult, int duration) throws SQLException {
+        String updateParticipantQuery = "INSERT INTO participants (participant_id, school_id, challenge_id, attempts_left, total_score, time_taken) "
                 +
                 "VALUES (?, ?, ?, ?, ?, ?) " +
-                "ON DUPLICATE KEY UPDATE " +
-                "attempts_left = attempts_left - 1, " +
-                "total_score = total_score + VALUES(total_score), " +
-                "time_taken = time_taken + VALUES(time_taken)";
+                "ON CONFLICT (participant_id, challenge_id) DO UPDATE SET " +
+                "attempts_left = participants.attempts_left - 1, " +
+                "total_score = participants.total_score + EXCLUDED.total_score, " +
+                "time_taken = participants.time_taken + EXCLUDED.time_taken";
+
         try (PreparedStatement updateParticipantStmt = conn.prepareStatement(updateParticipantQuery)) {
             updateParticipantStmt.setInt(1, participantId);
-            updateParticipantStmt.setString(2, schoolId);
+            updateParticipantStmt.setLong(2, schoolId);
             updateParticipantStmt.setInt(3, challengeNumber);
             updateParticipantStmt.setInt(4, getRemainingAttempts(conn, participantId, challengeNumber) - 1);
-            updateParticipantStmt.setInt(5, score);
+            updateParticipantStmt.setInt(5, scoreResult.getTotalScore());
             updateParticipantStmt.setInt(6, duration);
             updateParticipantStmt.executeUpdate();
         }
@@ -744,58 +793,99 @@ public class Mainserver {
     }
 
     private static int getMarksAwarded(Connection conn, int questionId, String userAnswer) throws SQLException {
-        String answerQuery = "SELECT marks FROM answers WHERE question_id = ? AND answer_text = ? AND is_correct = TRUE";
+        String answerQuery = "SELECT q.marks " +
+                "FROM questions q " +
+                "JOIN answers a ON q.id = a.question_id " +
+                "WHERE q.id = ? AND a.answer_text = ? AND a.is_correct = TRUE";
+
         try (PreparedStatement answerStmt = conn.prepareStatement(answerQuery)) {
             answerStmt.setInt(1, questionId);
             answerStmt.setString(2, userAnswer);
+
             try (ResultSet answerRs = answerStmt.executeQuery()) {
                 return answerRs.next() ? answerRs.getInt("marks") : 0;
             }
         }
     }
 
-    private static int calculateScoreFromAttemptedQuestions(Connection conn, int challengeAttemptId)
+    private static ScoreResult calculateScoreFromAttemptedQuestions(Connection conn, int challengeAttemptId)
             throws SQLException {
-        String scoreQuery = "SELECT SUM(marks_awarded) AS total_score FROM attempted_questions WHERE challenge_attempt_id = ?";
-        try (PreparedStatement scoreStmt = conn.prepareStatement(scoreQuery)) {
-            scoreStmt.setInt(1, challengeAttemptId);
-            try (ResultSet rs = scoreStmt.executeQuery()) {
-                return rs.next() ? rs.getInt("total_score") : 0;
+        int totalDeductedMarks = 0;
+
+        // Select rows with wrong answers
+        String selectWrongAnswersQuery = "SELECT id FROM attempted_questions WHERE challenge_attempt_id = ? AND marks_awarded = 0 AND answer_text IS NOT NULL AND answer_text <> ''";
+        try (PreparedStatement selectWrongAnswersStmt = conn.prepareStatement(selectWrongAnswersQuery)) {
+            selectWrongAnswersStmt.setInt(1, challengeAttemptId);
+            try (ResultSet rs = selectWrongAnswersStmt.executeQuery()) {
+                List<Integer> idsToUpdate = new ArrayList<>();
+                while (rs.next()) {
+                    idsToUpdate.add(rs.getInt("id"));
+                }
+
+                // Update rows by subtracting 3 from marks_awarded
+                if (!idsToUpdate.isEmpty()) {
+                    String updateMarksQuery = "UPDATE attempted_questions SET marks_awarded = marks_awarded - 3 WHERE id = ?";
+                    try (PreparedStatement updateMarksStmt = conn.prepareStatement(updateMarksQuery)) {
+                        for (int id : idsToUpdate) {
+                            updateMarksStmt.setInt(1, id);
+                            updateMarksStmt.executeUpdate();
+                            totalDeductedMarks -= 3; // Accumulate total deducted marks
+                        }
+                    }
+                }
             }
         }
-    }
 
-    private static String getSchoolIdByUsername(String username) throws SQLException {
-        String schoolId = null;
-        String sql = "SELECT school_reg_no FROM users WHERE username = ?";
+        // Calculate the total score
+    String scoreQuery = "SELECT SUM(marks_awarded) AS total_score FROM attempted_questions WHERE challenge_attempt_id = ?";
+    try (PreparedStatement scoreStmt = conn.prepareStatement(scoreQuery)) {
+        scoreStmt.setInt(1, challengeAttemptId);
+        try (ResultSet rs = scoreStmt.executeQuery()) {
+            int totalScore = rs.next() ? rs.getInt("total_score") : 0;
+
+            // Return both the total score and the deducted marks
+            return new ScoreResult(totalScore, totalDeductedMarks);
+        }
+    }
+}
+
+private static Long getSchoolIdByUsername(String username) throws SQLException {
+    Long schoolId = null;
+    String sql = "SELECT s.id AS school_id " +
+            "FROM users u " +
+            "JOIN schools s ON u.school_reg_no = s.registration_number " +
+            "WHERE u.username = ?";
         try (Connection conn = connectToDatabase();
                 PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, username);
             try (ResultSet rs = stmt.executeQuery()) {
                 if (rs.next()) {
-                    schoolId = rs.getString("school_reg_no");
+                    schoolId = rs.getLong("school_id");
                 }
             }
         }
         return schoolId;
     }
 
+
     // Helper method to get participant ID by username
     private static int getParticipantIdByUsername(String username) throws SQLException {
         try (Connection conn = connectToDatabase()) {
-            String query = "SELECT id FROM users WHERE username = ?";
+            String query = "SELECT p.id FROM participants p JOIN users u ON p.participant_id = u.id WHERE u.username = ?";
             PreparedStatement stmt = conn.prepareStatement(query);
             stmt.setString(1, username);
             ResultSet rs = stmt.executeQuery();
             if (rs.next()) {
                 return rs.getInt("id");
             } else {
-                throw new SQLException("User not found.");
+                throw new SQLException("Participant not found.");
             }
         }
     }
 
+
 }
+
 
 // private static void handleUploadQuestionsCommand(String[] parts, PrintWriter
 // writer, String username) {

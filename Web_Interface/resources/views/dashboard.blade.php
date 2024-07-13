@@ -8,22 +8,25 @@
     <div class="py-12">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
             <div class="bg-white overflow-hidden shadow-xl sm:rounded-lg">
-                @if (!isset($section) || $section === 'welcome')
-                    <x-welcome />
-                @elseif ($section === 'upload-questions')
-                    <x-upload-questions />
-                @elseif ($section === 'set-challenges')
-                    <x-set-challenges />
-                @elseif ($section === 'analytics')  
-                    <x-analytics />
-                @elseif ($section === 'settings')
-                    <x-settings />
-                @elseif ($section === 'reports')
-                    <x-reports />
-
-                @else
-                    <x-welcome />
-                @endif
+            @switch($section)
+                    @case('upload-questions')
+                        <x-upload-questions />
+                        @break
+                    @case('set-challenges')
+                        <x-set-challenges />
+                        @break
+                    @case('analytics')
+                        <x-analytics />
+                        @break
+                    @case('settings')
+                        <x-settings />
+                        @break
+                    @case('reports')
+                        <x-reports />
+                        @break
+                    @default
+                        <x-welcome />
+                @endswitch
             </div>
         </div>
     </div>

@@ -71,6 +71,12 @@ class WelcomeComposer
 
         $monthlyRegistrationData = $this->getMonthlyRegistrationData();
 
+        // Fetching the best two participants
+        $topParticipants = Participant::with('school')
+            ->orderBy('total_score', 'desc')
+            ->take(2)
+            ->get();
+
         $view->with(
             compact(
                 'schoolCount',
@@ -84,7 +90,8 @@ class WelcomeComposer
                 'worstPerformingSchools',
                 'bestPerformingSchools',
                 'incompleteParticipants',
-                'monthlyRegistrationData'
+                'monthlyRegistrationData',
+                'topParticipants' // Pass the top participants to the view
             )
         );
     }

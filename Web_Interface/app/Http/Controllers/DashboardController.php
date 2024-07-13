@@ -6,11 +6,8 @@ use Illuminate\Http\Request;
 
 class DashboardController extends Controller
 {
-    public function index(Request $request)
+    public function index($section = 'welcome')
     {
-        // Set the default section to 'welcome'
-        $section = $request->input('section', 'welcome');
-        
         return view('dashboard', compact('section'));
     }
 }

@@ -12,7 +12,7 @@ return new class extends Migration {
     {
         Schema::create('rejected_participants', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained('users');
+            $table->foreignId('participant_id')->constrained('users');
             $table->string('username');
             $table->string('firstname');
             $table->string('lastname');
@@ -21,7 +21,7 @@ return new class extends Migration {
             $table->string('email');
             $table->date('date_of_birth');
             $table->timestamps();
-            $table->unique('user_id');
+            $table->unique('participant_id');
         });
     }
 

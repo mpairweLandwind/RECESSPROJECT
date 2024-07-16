@@ -18,13 +18,10 @@ class School extends Model
         'representative_name',
         'validated',
     ];
-
-
     public function participants()
     {
         return $this->hasMany(Participant::class);
-    }
-    
+    }    
     public function representative()
     {
         return $this->belongsTo(User::class, 'representative_id');

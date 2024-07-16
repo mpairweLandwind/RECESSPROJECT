@@ -68,7 +68,7 @@
             @foreach ($questionRepetition as $participant)
                 <li class="flex items-center mb-4">
                     <div>
-                        <div class="text-sm font-bold">{{ $participant->user->name }}</div>
+                        
                         <div class="text-xs text-gray-400">Repeated Questions: {{ $participant->repeated_question_count }}</div>
                     </div>
                 </li>
@@ -102,7 +102,7 @@
             <tbody>
                 @foreach ($topParticipants as $participant)
                     <tr>
-                        <td class="py-2 px-4 border-b border-gray-700">{{ $participant->user->name }}</td>
+                        <td class="py-2 px-4 border-b border-gray-700">{{ $participant->user->username }}</td>
                         <td class="py-2 px-4 border-b border-gray-700">{{ $participant->school->name }}</td>
                         <td class="py-2 px-4 border-b border-gray-700">{{ $participant->total_score }}</td>
                     </tr>

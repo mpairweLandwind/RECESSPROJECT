@@ -18,7 +18,7 @@ return new class extends Migration {
             $table->dateTime('end_date');
             $table->integer('duration'); // Duration in minutes
             $table->integer('number_of_questions');
-            $table->enum('status', ['valid', 'invalid'])->default('invalid');
+            $table->enum('status', ['valid', 'invalid'])->default('valid');
             $table->timestamps();
         });
 

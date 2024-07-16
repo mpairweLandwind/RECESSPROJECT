@@ -50,12 +50,34 @@ public class Client {
                 handleAvailableChallenges(response.substring("availablechallenges ".length()));
             } else if (response.startsWith("availableapplicants")) {
                 handleAvailableApplicants(response.substring("availableapplicants ".length()));
-            } else if (response.startsWith("Challenge submitted successfully")) {
-                System.out.println(response);
-                synchronized (lock) {
-                    lock.notify();
-                }
+            } else if (response.equals("Invalid command")) {
                 break;
+
+            }
+
+            else if (response.startsWith("Challenge submitted successfully")) {
+                System.out.println(response);
+
+                // Gracefully shutdown the executor
+                executorService.shutdown();
+                try {
+                    if (!executorService.awaitTermination(2, TimeUnit.SECONDS)) {
+                        executorService.shutdownNow();
+                    }
+                } catch (InterruptedException e) {
+                    executorService.shutdownNow();
+                    Thread.currentThread().interrupt();
+                }
+
+                // Wait for user to acknowledge before displaying the help menu and prompting
+                // for the next command
+                readUserInput("Press Enter to continue...");
+
+                // Clear any residual input
+                clearInputBuffer();
+
+                // Redisplay help menu
+                printCommandsHelp();
             } else {
                 System.out.println(response);
                 break; // Ensure complete processing of the server response
@@ -63,33 +85,43 @@ public class Client {
         }
     }
 
+    private static void clearInputBuffer() throws IOException {
+        while (System.in.available() > 0) {
+            System.in.read();
+        }
+    }
+
     private static void handleChallenge(String response) {
         System.out.println(response); // Display challenge details
-
+    
         synchronized (lock) {
             executorService.submit(() -> {
                 try {
                     List<String> questions = new ArrayList<>();
                     List<String> answers = new ArrayList<>();
-                    String username = null;
-
+                    List<Long> timeSpent = new ArrayList<>();
+                    long questionStartTime = System.currentTimeMillis();
+    
                     while (true) {
                         String line = readServerResponse();
                         if (line == null) {
                             break;
                         }
-
-                        if (line.startsWith("username: ")) {
-                            username = line.substring("username: ".length());
-                        } else if (line.startsWith("Question: ")) {
+    
+                        if (line.startsWith("Question: ")) {
                             System.out.println(line); // Display the question
+                            questions.add(line.substring(10)); // Add the question to the list
+                            questionStartTime = System.currentTimeMillis(); // Reset the start time for the new question
                         } else if (line.startsWith("Enter your answer:")) {
                             System.out.print(line + " "); // Display the answer prompt
                             String answer = readUserInput("");
                             answers.add(answer);
                             writer.println(answer); // Send the answer to the server
                             writer.flush(); // Ensure the answer is sent to the server
-                        } else if (line.equals("Answer received. Press Enter to display the next question.")) {
+    
+                            long questionEndTime = System.currentTimeMillis();
+                            timeSpent.add(questionEndTime - questionStartTime); // Record the time spent on this question
+                        } else if (line.startsWith("Answer received.")) {
                             System.out.println(line); // Display the message
                             readUserInput(""); // Wait for the user to press Enter
                             writer.println(""); // Send the Enter key press to the server
@@ -97,12 +129,12 @@ public class Client {
                         } else if (line.equals("End of questions")) {
                             break;
                         } else {
-                            System.out.println(line); // Display any additional information
+                            break;
                         }
                     }
-
-                    // Submit the collected answers to the server, along with the username
-                    submitChallenge(response, questions, answers, username);
+    
+                    // Submit the collected answers and time spent to the server
+                    submitChallenge(response, questions, answers, timeSpent);
                 } catch (IOException e) {
                     e.printStackTrace();
                 } finally {
@@ -111,7 +143,7 @@ public class Client {
                     }
                 }
             });
-
+    
             try {
                 lock.wait();
             } catch (InterruptedException e) {
@@ -119,17 +151,18 @@ public class Client {
             }
         }
     }
-
-    private static void submitChallenge(String challengeDetails, List<String> questions, List<String> answers,
-            String username) {
+    
+    private static void submitChallenge(String challengeDetails, List<String> questions, List<String> answers, List<Long> timeSpent) {
         writer.println("SubmitChallenge");
         writer.println(challengeDetails);
-        writer.println("username: " + username);
-        for (String answer : answers) {
-            writer.println(answer);
+        for (int i = 0; i < answers.size(); i++) {
+            writer.println("Q: " + questions.get(i));
+            writer.println("A: " + answers.get(i));
+            writer.println("Time spent: " + timeSpent.get(i) + " ms");
         }
-        writer.flush(); // Ensure all answers are sent to the server
+        writer.flush(); // Ensure all answers and time spent are sent to the server
     }
+    
 
     private static String readServerResponse() throws IOException {
         return reader.readLine();

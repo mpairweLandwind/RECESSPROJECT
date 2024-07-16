@@ -3,7 +3,7 @@
     <x-authentication-card>
         <x-slot name="logo">
             <img src="{{ Vite::asset('resources/images/logo.png') }}" class="img-fluid rounded-circle" alt="Logo"
-                style="width: 150px; height: 150px; border-radius: 50%;">
+                style="width: 150px; height: 150px; border-radius: 50%;" />
         </x-slot>
 
         <x-validation-errors class="mb-4" />
@@ -13,7 +13,7 @@
             <div>
                 <x-label for="username" value="{{ __('username') }}" class="text-white" />
                 <x-input id="username" class="block mt-1 w-full" type="text" name="username" :value="old('username')"
-                    required autocomplete="username" autofocus />
+                    required autocomplete="username" autofocus />*
             </div>
             <div class="mt-4>
                 <x-label for=" firstname" value="{{ __('First Name') }}" class="text-white" />
@@ -67,7 +67,7 @@
                 <x-label for="role" value="{{ __('Role') }}" class="text-white" />
                 <select id="role" name="role" class="block mt-1 w-full text-slate-600" required>
                     <option value="admin">Admin</option>
-                    <option value="representative">Representative</option>
+                  <option value="representative">Representative</option>
                     <option value="participant">Participant</option>
                 </select>
             </div>

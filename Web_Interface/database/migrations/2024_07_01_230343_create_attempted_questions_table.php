@@ -17,6 +17,7 @@ return new class extends Migration {
             $table->foreignId('question_id')->constrained('questions')->onDelete('cascade');
             $table->String('given_answer');
             $table->integer('marks_awarded');
+            $table->integer('time_spent'); // Time taken to answer the question in seconds (rounded up)
             $table->boolean('is_repeated')->default(false);
             $table->timestamps();
         });

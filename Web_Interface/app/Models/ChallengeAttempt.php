@@ -13,10 +13,11 @@ class ChallengeAttempt extends Model
     protected $fillable = [
         'participant_id',
         'challenge_id',
+        'score',
+        'deducted_marks',        
         'time_taken',
-        'attempts',
-        'correct_answers',
-        'total_score',
+        'completed',             
+        
     ];
 
     public function participant()

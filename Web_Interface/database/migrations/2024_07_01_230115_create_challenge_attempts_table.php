@@ -15,6 +15,7 @@ return new class extends Migration {
             $table->foreignId('challenge_id')->constrained('challenges')->onDelete('cascade');
             $table->foreignId('participant_id')->constrained('participants')->onDelete('cascade');
             $table->integer('score');
+            $table->integer('deducted_marks');
             $table->integer('time_taken');
             $table->boolean('completed')->default(false);
             $table->timestamps();

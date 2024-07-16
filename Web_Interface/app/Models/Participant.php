@@ -18,12 +18,10 @@ class Participant extends Model
         'completed',
         'time_taken',
     ];
-
     public function user()
     {
         return $this->belongsTo(User::class);
     }
-
     public function school()
     {
         return $this->belongsTo(School::class);
@@ -46,8 +44,6 @@ class Participant extends Model
     {
         return $this->hasMany(Attempt::class);
     }
-   
-
     public function challengeParticipants()
     {
         return $this->hasMany(ChallengeParticipant::class);

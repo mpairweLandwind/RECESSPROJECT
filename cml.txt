@@ -10,6 +10,8 @@ uploadQuestions  /home/landwind/RecessProject/questions.xlsx
 java  CML_Interface.Client
 javac  CML_Interface/Client.java
 
+register brian brian yuyen brianyuyen@gmail.com 1996-06-15 U023 /home/landwind/RecessProject/alien.jpg brian123.com
+
 import javax.mail.PasswordAuthentication;
 
  start_date      |      end_date       |    

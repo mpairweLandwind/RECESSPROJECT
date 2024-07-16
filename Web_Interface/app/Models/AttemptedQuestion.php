@@ -16,6 +16,7 @@ class AttemptedQuestion extends Model
         'question_id',
         'given_answer',
         'marks_awarded',
+        'time_spent',  // Time taken to answer the question in seconds (rounded up)
         'is_repeated',
         'created_at',
         'updated_at',

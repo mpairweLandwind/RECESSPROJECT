@@ -4,14 +4,10 @@
         <div>
             <h1 class="text-3xl font-bold">Dashboard</h1>
             <div class="flex space-x-4 mt-4">
-                <button
-                    class="bg-gray-800 px-4 py-2 rounded transition duration-300 ease-in-out hover:bg-gray-700 hover:text-white focus:bg-gray-600 focus:text-white">Overview</button>
-                <button
-                    class="bg-gray-800 px-4 py-2 rounded transition duration-300 ease-in-out hover:bg-gray-700 hover:text-white focus:bg-gray-600 focus:text-white">Analytics</button>
-                <button
-                    class="bg-gray-800 px-4 py-2 rounded transition duration-300 ease-in-out hover:bg-gray-700 hover:text-white focus:bg-gray-600 focus:text-white">Reports</button>
-                <button
-                    class="bg-gray-800 px-4 py-2 rounded transition duration-300 ease-in-out hover:bg-gray-700 hover:text-white focus:bg-gray-600 focus:text-white">Notifications</button>
+                <button class="bg-gray-800 px-4 py-2 rounded transition duration-300 ease-in-out hover:bg-gray-700 hover:text-white focus:bg-gray-600 focus:text-white">Overview</button>
+                <button class="bg-gray-800 px-4 py-2 rounded transition duration-300 ease-in-out hover:bg-gray-700 hover:text-white focus:bg-gray-600 focus:text-white">Analytics</button>
+                <button class="bg-gray-800 px-4 py-2 rounded transition duration-300 ease-in-out hover:bg-gray-700 hover:text-white focus:bg-gray-600 focus:text-white">Reports</button>
+                <button class="bg-gray-800 px-4 py-2 rounded transition duration-300 ease-in-out hover:bg-gray-700 hover:text-white focus:bg-gray-600 focus:text-white">Notifications</button>
             </div>
         </div>
         <div class="flex items-center space-x-4 relative">
@@ -53,43 +49,43 @@
         </div>
     </div>
 
-<!-- Main Content -->
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-    <!-- Overview Section -->
-    <div class="bg-gray-800 p-6 rounded-lg shadow-lg">
-        <div class="text-xl font-bold mb-4">Overview</div>
-        <canvas id="overviewChart"></canvas>
-    </div>
+    <!-- Main Content -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Overview Section -->
+        <div class="bg-gray-800 p-6 rounded-lg shadow-lg">
+            <div class="text-xl font-bold mb-4">Overview</div>
+            <canvas id="overviewChart"></canvas>
+        </div>
 
-    <!-- Question Repetition Section -->
-    <div class="bg-gray-800 p-6 rounded-lg shadow-lg">
-        <div class="text-xl font-bold mb-4">Question Repetition</div>
-        <ul>
-            @foreach ($questionRepetition as $participant)
+        <!-- Question Repetition Section -->
+        <div class="bg-gray-800 p-6 rounded-lg shadow-lg">
+            <div class="text-xl font-bold mb-4">Question Repetition</div>
+            <ul>
+                @foreach ($questionRepetition as $participant)
                 <li class="flex items-center mb-4">
                     <div>
-                        
+
                         <div class="text-xs text-gray-400">Repeated Questions: {{ $participant->repeated_question_count }}</div>
                     </div>
                 </li>
-            @endforeach
-        </ul>
-    </div>
-<!-- School Rankings Section -->
-<div class="bg-gray-800 p-6 rounded-lg shadow-lg">
-    <div class="text-xl font-bold mb-4">School Rankings</div>
-    <canvas id="schoolRankingsChart"></canvas>
-</div>
+                @endforeach
+            </ul>
+        </div>
+        <!-- School Rankings Section -->
+        <div class="bg-gray-800 p-6 rounded-lg shadow-lg">
+            <div class="text-xl font-bold mb-4">School Rankings</div>
+            <canvas id="schoolRankingsChart"></canvas>
+        </div>
 
-<!-- Monthly Registrations Chart Section -->
-<div class="bg-gray-800 p-6 rounded-lg shadow-lg">
-    <div class="text-xl font-bold mb-4">Monthly Registrations</div>
-    <canvas id="monthlyRegistrationsChart"></canvas>
+        <!-- Monthly Registrations Chart Section -->
+        <div class="bg-gray-800 p-6 rounded-lg shadow-lg">
+            <div class="text-xl font-bold mb-4">Monthly Registrations</div>
+            <canvas id="monthlyRegistrationsChart"></canvas>
+        </div>
     </div>
-</div>
 
-<!-- Additional Graph Section -->
-<div class="bg-gray-800 p-6 rounded-lg shadow-lg mt-8">
+    <!-- Additional Graph Section -->
+    <div class="bg-gray-800 p-6 rounded-lg shadow-lg mt-8">
         <div class="text-xl font-bold mb-4">Best Students in Mathematics Challenge</div>
         <table class="min-w-full bg-gray-800 text-white border-collapse">
             <thead>
@@ -101,11 +97,11 @@
             </thead>
             <tbody>
                 @foreach ($topParticipants as $participant)
-                    <tr>
-                        <td class="py-2 px-4 border-b border-gray-700">{{ $participant->user->username }}</td>
-                        <td class="py-2 px-4 border-b border-gray-700">{{ $participant->school->name }}</td>
-                        <td class="py-2 px-4 border-b border-gray-700">{{ $participant->total_score }}</td>
-                    </tr>
+                <tr>
+                    <td class="py-2 px-4 border-b border-gray-700">{{ $participant->username }}</td>
+                    <td class="py-2 px-4 border-b border-gray-700">{{ $participant->school->name }}</td>
+                    <td class="py-2 px-4 border-b border-gray-700">{{ $participant->total_score }}</td>
+                </tr>
                 @endforeach
             </tbody>
         </table>
@@ -121,8 +117,6 @@
 
 
 <script>
-
-           
     // Overview Chart
     var ctxOverview = document.getElementById('overviewChart').getContext('2d');
     var overviewChart = new Chart(ctxOverview, {
@@ -137,12 +131,12 @@
                 fill: true,
                 tension: 0.4
             }, {
-                    label: 'High Score',
-                    data: @json(array_column($performanceChartData, 'high_score')),
-                    borderColor: 'rgba(153, 102, 255, 1)',
-                    backgroundColor: 'rgba(153, 102, 255, 0.2)',
-                    fill: true,
-                    tension: 0.4
+                label: 'High Score',
+                data: @json(array_column($performanceChartData, 'high_score')),
+                borderColor: 'rgba(153, 102, 255, 1)',
+                backgroundColor: 'rgba(153, 102, 255, 0.2)',
+                fill: true,
+                tension: 0.4
             }]
         },
         options: {
@@ -164,7 +158,7 @@
 
 
 
-    document.addEventListener('DOMContentLoaded', function () {
+    document.addEventListener('DOMContentLoaded', function() {
         var performanceChartData = @json($performanceChartData);
 
         var labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -183,35 +177,93 @@
             schoolNames[monthIndex] = Object.keys(schools).join(', ');
         }
 
-    // Create the chart
-    var ctxSchoolRankings = document.getElementById('schoolRankingsChart').getContext('2d');
-    var schoolRankingsChart = new Chart(ctxSchoolRankings, {
+        // Create the chart
+        var ctxSchoolRankings = document.getElementById('schoolRankingsChart').getContext('2d');
+        var schoolRankingsChart = new Chart(ctxSchoolRankings, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                        label: 'Total Score',
+                        data: totalScores,
+                        borderColor: 'rgba(255, 99, 132, 1)',
+                        backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                        fill: false,
+                        tension: 0.4
+                    },
+                    {
+                        label: 'High Score',
+                        data: highScores,
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                        fill: false,
+                        tension: 0.4
+                    },
+                    {
+                        label: 'Number of Participants',
+                        data: participantCounts,
+                        borderColor: 'rgba(255, 206, 86, 1)',
+                        backgroundColor: 'rgba(255, 206, 86, 0.2)',
+                        fill: false,
+                        tension: 0.4
+                    }
+                ]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            color: '#fff'
+                        }
+                    },
+                    x: {
+                        ticks: {
+                            color: '#fff'
+                        }
+                    }
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            title: function(tooltipItems) {
+                                var index = tooltipItems[0].dataIndex;
+                                return `${labels[index]}: ${schoolNames[index]}`;
+                            },
+                            label: function(tooltipItem) {
+                                var datasetLabel = tooltipItem.dataset.label || '';
+                                return `${datasetLabel}: ${tooltipItem.parsed.y}`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    });
+
+
+
+
+    // Monthly Registrations Chart
+    var ctxMonthlyRegistrations = document.getElementById('monthlyRegistrationsChart').getContext('2d');
+    var monthlyRegistrationsChart = new Chart(ctxMonthlyRegistrations, {
         type: 'line',
         data: {
-            labels: labels,
-            datasets: [
-                {
-                    label: 'Total Score',
-                    data: totalScores,
-                    borderColor: 'rgba(255, 99, 132, 1)',
-                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
-                    fill: false,
+            labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+            datasets: [{
+                    label: 'Schools',
+                    data: @json(array_values($monthlyRegistrationData['schoolRegistrations'])),
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    fill: true,
                     tension: 0.4
                 },
                 {
-                    label: 'High Score',
-                    data: highScores,
-                    borderColor: 'rgba(54, 162, 235, 1)',
-                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
-                    fill: false,
-                    tension: 0.4
-                },
-                {
-                    label: 'Number of Participants',
-                    data: participantCounts,
-                    borderColor: 'rgba(255, 206, 86, 1)',
-                    backgroundColor: 'rgba(255, 206, 86, 0.2)',
-                    fill: false,
+                    label: 'Participants',
+                    data: @json(array_values($monthlyRegistrationData['participantRegistrations'])),
+                    borderColor: 'rgba(153, 102, 255, 1)',
+                    backgroundColor: 'rgba(153, 102, 255, 0.2)',
+                    fill: true,
                     tension: 0.4
                 }
             ]
@@ -229,71 +281,7 @@
                         color: '#fff'
                     }
                 }
-            },
-            plugins: {
-                tooltip: {
-                    callbacks: {
-                        title: function (tooltipItems) {
-                            var index = tooltipItems[0].dataIndex;
-                            return `${labels[index]}: ${schoolNames[index]}`;
-                        },
-                        label: function (tooltipItem) {
-                            var datasetLabel = tooltipItem.dataset.label || '';
-                            return `${datasetLabel}: ${tooltipItem.parsed.y}`;
-                        }
-                    }
-                }
             }
         }
     });
-    });
-
-
-
-
-                        // Monthly Registrations Chart
-                        var ctxMonthlyRegistrations = document.getElementById('monthlyRegistrationsChart').getContext('2d');
-                        var monthlyRegistrationsChart = new Chart(ctxMonthlyRegistrations, {
-                            type: 'line',
-                            data: {
-                                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
-                                datasets: [
-                                    {
-                                        label: 'Schools',
-                                        data: @json(array_values($monthlyRegistrationData['schoolRegistrations'])),
-                                        borderColor: 'rgba(75, 192, 192, 1)',
-                                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                                        fill: true,
-                                        tension: 0.4
-                                    },
-                                    {
-                                        label: 'Participants',
-                                        data: @json(array_values($monthlyRegistrationData['participantRegistrations'])),
-                                        borderColor: 'rgba(153, 102, 255, 1)',
-                                        backgroundColor: 'rgba(153, 102, 255, 0.2)',
-                                        fill: true,
-                                        tension: 0.4
-                                    }
-                                ]
-        },
-        options: {
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: {
-                        color: '#fff'
-                    }
-                },
-                x: {
-                    ticks: {
-                        color: '#fff'
-                    }
-                }
-            }
-        }
-    });
-
-
-
-
 </script>

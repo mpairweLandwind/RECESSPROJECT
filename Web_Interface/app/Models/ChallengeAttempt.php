@@ -11,8 +11,8 @@ class ChallengeAttempt extends Model
 
 
     protected $fillable = [
-        'participant_id',
         'challenge_id',
+        'participant_id',       
         'score',
         'deducted_marks',        
         'time_taken',

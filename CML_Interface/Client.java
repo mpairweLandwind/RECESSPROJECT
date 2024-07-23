@@ -8,8 +8,8 @@ import java.util.concurrent.*;
 public class Client {
     private static BufferedReader reader;
     private static PrintWriter writer;
-    private static BufferedReader userReader = new BufferedReader(new InputStreamReader(System.in));
-    private static ExecutorService executorService = Executors.newSingleThreadExecutor();
+    private static final BufferedReader userReader = new BufferedReader(new InputStreamReader(System.in));
+    private static final ExecutorService executorService = Executors.newSingleThreadExecutor();
     private static final Object lock = new Object();
 
     public static void main(String[] args) {
@@ -20,7 +20,7 @@ public class Client {
 
             // Read server welcome message and print it
             System.out.println(readServerResponse());
-
+// 0756197795  annet  
             // Display available commands to the user
             printCommandsHelp();
 
@@ -35,7 +35,6 @@ public class Client {
                 processServerResponses();
             }
         } catch (IOException e) {
-            e.printStackTrace();
         } finally {
             executorService.shutdown();
         }
@@ -90,7 +89,7 @@ public class Client {
             System.in.read();
         }
     }
-
+    
     private static void handleChallenge(String response) {
         System.out.println(response); // Display challenge details
     
@@ -99,8 +98,27 @@ public class Client {
                 try {
                     List<String> questions = new ArrayList<>();
                     List<String> answers = new ArrayList<>();
-                    List<Long> timeSpent = new ArrayList<>();
-                    long questionStartTime = System.currentTimeMillis();
+                    String username = null;
+                   // long totalTimeSpent = 0;
+                    long duration = 0; // Duration in milliseconds
+                    long startTime = System.currentTimeMillis();
+    
+                    if (response.startsWith("Challenge:")) {
+                        // Extract duration from the challenge details if provided
+                        String[] parts = response.split(" ");
+                        for (int i = 0; i < parts.length; i++) {
+                            if (parts[i].equals("Duration:")) {
+                                int durationMinutes = Integer.parseInt(parts[i + 1]);
+                                if (durationMinutes <= 0) {
+                                    System.out.println("Invalid duration time. Execution halted.");
+                                    return; // Halt execution if duration <= 0
+                                }
+                                duration = durationMinutes * 60 * 1000; // Convert to milliseconds
+                                System.out.println("Extracted Duration: " + durationMinutes + " minutes");
+                                System.out.println("Duration in milliseconds for debugging: " + duration);
+                            }
+                        }
+                    }
     
                     while (true) {
                         String line = readServerResponse();
@@ -108,33 +126,60 @@ public class Client {
                             break;
                         }
     
-                        if (line.startsWith("Question: ")) {
+                        if (line.startsWith("username: ")) {
+                            username = line.substring("username: ".length());
+                        } else if (line.startsWith("Question: ")) {
                             System.out.println(line); // Display the question
                             questions.add(line.substring(10)); // Add the question to the list
-                            questionStartTime = System.currentTimeMillis(); // Reset the start time for the new question
                         } else if (line.startsWith("Enter your answer:")) {
                             System.out.print(line + " "); // Display the answer prompt
+                           // long questionStartTime = System.currentTimeMillis(); // Record the start time for the question
                             String answer = readUserInput("");
+                           // long questionEndTime = System.currentTimeMillis();
                             answers.add(answer);
+                            // long timeSpentOnQuestion = questionEndTime - questionStartTime;
+                            // totalTimeSpent += timeSpentOnQuestion;
                             writer.println(answer); // Send the answer to the server
-                            writer.flush(); // Ensure the answer is sent to the server
+                            writer.flush();
     
-                            long questionEndTime = System.currentTimeMillis();
-                            timeSpent.add(questionEndTime - questionStartTime); // Record the time spent on this question
-                        } else if (line.startsWith("Answer received.")) {
-                            System.out.println(line); // Display the message
+                            // Calculate elapsed time
+                            long currentTime = System.currentTimeMillis();
+                            long elapsedTime = currentTime - startTime;
+    
+                            // Check if the total time spent exceeds the duration of the challenge
+                            if (elapsedTime >= duration) {
+                                writer.println("Time is up! Submitting your answers now.");
+                                writer.flush();
+                                break;
+                            }
+    
+                            // Calculate remaining time
+                            long remainingTime = duration - elapsedTime;
+                            long remainingMinutes = remainingTime / 60000;
+                            long remainingSeconds = (remainingTime / 1000) % 60;
+
+                            
+    
+                            writer.println("Answer received. Press Enter to display the next question. " +
+                                    "Remaining Time: " + remainingMinutes + " minutes " + remainingSeconds + " seconds");
+                            writer.flush();
                             readUserInput(""); // Wait for the user to press Enter
-                            writer.println(""); // Send the Enter key press to the server
-                            writer.flush(); // Ensure the Enter key press is sent to the server
-                        } else if (line.equals("End of questions")) {
+                        } else if (line.equals("Time is up! Submitting your answers now.")
+                                || line.equals("End of questions")) {
+                                   
                             break;
+
+                        
+                        
                         } else {
-                            break;
+                            System.out.println(line); // Display any additional information
                         }
                     }
     
-                    // Submit the collected answers and time spent to the server
-                    submitChallenge(response, questions, answers, timeSpent);
+                 
+    
+                    // Submit the collected answers and total time spent to the server
+                    submitChallenge(response, questions, answers, username);
                 } catch (IOException e) {
                     e.printStackTrace();
                 } finally {
@@ -151,18 +196,18 @@ public class Client {
             }
         }
     }
-    
-    private static void submitChallenge(String challengeDetails, List<String> questions, List<String> answers, List<Long> timeSpent) {
-        writer.println("SubmitChallenge");
-        writer.println(challengeDetails);
-        for (int i = 0; i < answers.size(); i++) {
-            writer.println("Q: " + questions.get(i));
-            writer.println("A: " + answers.get(i));
-            writer.println("Time spent: " + timeSpent.get(i) + " ms");
-        }
-        writer.flush(); // Ensure all answers and time spent are sent to the server
+    private static void submitChallenge(String challengeDetails, List<String> questions, List<String> answers,
+        String username) {
+    writer.println("SubmitChallenge");
+    writer.println(challengeDetails);
+    writer.println("username: " + username);
+    for (String answer : answers) {
+        writer.println(answer);
     }
-    
+    // writer.println("TotalTimeSpent: " + totalTimeSpent); // Ensure this line is correctly sending the total time spent
+    // writer.flush(); // Ensure all data is sent to the server
+}
+
 
     private static String readServerResponse() throws IOException {
         return reader.readLine();
@@ -173,7 +218,6 @@ public class Client {
         try {
             return userReader.readLine();
         } catch (IOException e) {
-            e.printStackTrace();
             return null;
         }
     }
@@ -227,8 +271,8 @@ public class Client {
     private static void printCommandsHelp() {
         String[] commands = {
                 "login <username> <password> - Log in to the system usage e.g login lee lee123.com  ",
-                "register <username> <firstname> <lastname> <email> <dob> <school_reg_no> <image_path> - Register a new user",
-                "viewChallenges - View all available challenges  e.g  viewchallenges  ",
+                "register <username> <firstname> <lastname> <email> <dob> <school_reg_no> <image_path> <password> - Register a new user",
+                        "viewChallenges - View all available challenges  e.g  viewchallenges  ",
                 "attemptChallenge <challenge_ID> - Attempt a specified challenge e.g attemptchallenge  5 ",
                 "viewApplicants - View all applicants pending confirmation",
                 "confirm <yes/no> <username> - Confirm or reject an applicant",

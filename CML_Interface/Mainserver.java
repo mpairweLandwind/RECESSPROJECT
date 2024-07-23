@@ -21,9 +21,9 @@ public class Mainserver {
     private static String dbPassword = "alien123.com";
     private static String dbUrl = "jdbc:postgresql://localhost:5432/competition_db";
     private static Map<String, Boolean> loggedInClients = new HashMap<>();
-    private static String smtpHost = "smtp.gmail.com"; // Replace with your SMTP host
-    private static String smtpUsername = "mpairwelauben375@gmail.com";
-    private static String smtpPassword = "kotd nvgo cdvx dfgo";
+    private static final String smtpHost = "smtp.gmail.com"; // Replace with your SMTP host
+    private static final String smtpUsername = "mpairwelauben375@gmail.com";
+    private static final String smtpPassword = "kotd nvgo cdvx dfgo";
 
     public static void main(String[] args) {
         if (args.length != 2) {
@@ -73,31 +73,18 @@ public class Mainserver {
                             String commandType = parts[0];
 
                             switch (commandType.toLowerCase()) {
-                                case "login":
+                                case "login" -> {
                                     username = handleLoginCommand(parts, writer);
                                     isLoggedIn = (username != null);
-                                    break;
-                                case "register":
-                                    handleRegisterCommand(parts, writer);
-                                    break;
-                                case "viewchallenges":
-                                    handleViewChallengesCommand(writer);
-                                    break;
-                                case "viewreports":
-                                    handleViewReportsCommand(writer);
-                                    break;
-                                case "viewapplicants":
-                                    handleViewApplicantsCommand(writer, username);
-                                    break;
-                                case "attemptchallenge":
+                                }
+                                case "register" -> handleRegisterCommand(parts, writer);
+                                case "viewchallenges" -> handleViewChallengesCommand(writer);
+                                case "viewreports" -> handleViewReportsCommand(writer);
+                                case "viewapplicants" -> handleViewApplicantsCommand(writer, username);
+                                case "attemptchallenge" ->
                                     handleAttemptChallengeCommand(parts, username, writer, reader);
-                                    break;
-                                case "confirm":
-                                    handleConfirmCommand(parts, writer, username);
-                                    break;
-                                default:
-                                    writer.println("Invalid command.");
-                                    break;
+                                case "confirm" -> handleConfirmCommand(parts, writer, username);
+                                default -> writer.println("Invalid command.");
                             }
                         }
                     } catch (IOException e) {
@@ -300,95 +287,107 @@ public class Mainserver {
         try (Connection conn = connectToDatabase()) {
             // Check if the logged-in user is a school representative
             String repQuery = "SELECT role FROM users WHERE username = ?";
-            PreparedStatement repStmt = conn.prepareStatement(repQuery);
-            repStmt.setString(1, loggedInUser);
-            ResultSet repRs = repStmt.executeQuery();
-
-            if (!repRs.next() || !repRs.getString("role").equals("representative")) {
-                writer.println("You must be a school representative to confirm participants.");
-                return;
+            try (PreparedStatement repStmt = conn.prepareStatement(repQuery)) {
+                repStmt.setString(1, loggedInUser);
+                try (ResultSet repRs = repStmt.executeQuery()) {
+                    if (!repRs.next() || !repRs.getString("role").equals("representative")) {
+                        writer.println("You must be a school representative to confirm participants.");
+                        return;
+                    }
+                }
             }
 
             // Get the school_reg_no of the logged-in user
             String schoolQuery = "SELECT school_reg_no FROM users WHERE username = ?";
-            PreparedStatement schoolStmt = conn.prepareStatement(schoolQuery);
-            schoolStmt.setString(1, loggedInUser);
-            ResultSet schoolRs = schoolStmt.executeQuery();
+            try (PreparedStatement schoolStmt = conn.prepareStatement(schoolQuery)) {
+                schoolStmt.setString(1, loggedInUser);
+                try (ResultSet schoolRs = schoolStmt.executeQuery()) {
+                    if (!schoolRs.next()) {
+                        writer.println("Logged-in user not found.");
+                        return;
+                    }
 
-            if (!schoolRs.next()) {
-                writer.println("Logged-in user not found.");
-                return;
-            }
+                    String schoolRegNo = schoolRs.getString("school_reg_no");
 
-            String schoolRegNo = schoolRs.getString("school_reg_no");
+                    // Get the user_id and school_reg_no of the participant
+                    String participantQuery = "SELECT id, school_reg_no FROM users WHERE username = ?";
+                    try (PreparedStatement participantStmt = conn.prepareStatement(participantQuery)) {
+                        participantStmt.setString(1, username);
+                        try (ResultSet participantRs = participantStmt.executeQuery()) {
+                            if (!participantRs.next()) {
+                                writer.println("User not found.");
+                                return;
+                            }
 
-            // Get the user_id and school_reg_no of the participant
-            String participantQuery = "SELECT id, school_reg_no FROM users WHERE username = ?";
-            PreparedStatement participantStmt = conn.prepareStatement(participantQuery);
-            participantStmt.setString(1, username);
-            ResultSet participantRs = participantStmt.executeQuery();
+                            int userId = participantRs.getInt("id");
+                            String participantSchoolRegNo = participantRs.getString("school_reg_no");
 
-            if (!participantRs.next()) {
-                writer.println("User not found.");
-                return;
-            }
+                            if (!schoolRegNo.equals(participantSchoolRegNo)) {
+                                writer.println("You can only confirm participants from your school.");
+                                return;
+                            }
 
-            int userId = participantRs.getInt("id");
-            String participantSchoolRegNo = participantRs.getString("school_reg_no");
+                            // Get the school_id from the schools table using the participant's
+                            // school_reg_no
+                            String schoolIdQuery = "SELECT id FROM schools WHERE registration_number = ?";
+                            try (PreparedStatement schoolIdStmt = conn.prepareStatement(schoolIdQuery)) {
+                                schoolIdStmt.setString(1, participantSchoolRegNo);
+                                try (ResultSet schoolIdRs = schoolIdStmt.executeQuery()) {
+                                    if (!schoolIdRs.next()) {
+                                        writer.println("School not found for the participant.");
+                                        return;
+                                    }
 
-            if (!schoolRegNo.equals(participantSchoolRegNo)) {
-                writer.println("You can only confirm participants from your school.");
-                return;
-            }
+                                    int schoolId = schoolIdRs.getInt("id");
 
-            // Get the school_id from the schools table using the participant's
-            // school_reg_no
-            String schoolIdQuery = "SELECT id FROM schools WHERE registration_number = ?";
-            PreparedStatement schoolIdStmt = conn.prepareStatement(schoolIdQuery);
-            schoolIdStmt.setString(1, participantSchoolRegNo);
-            ResultSet schoolIdRs = schoolIdStmt.executeQuery();
+                                    if (confirmation.equalsIgnoreCase("yes")) {
+                                        // Update participant status to active
+                                        String updateQuery = "UPDATE users SET status = 'active' WHERE id = ?";
+                                        try (PreparedStatement updateStmt = conn.prepareStatement(updateQuery)) {
+                                            updateStmt.setInt(1, userId);
+                                            updateStmt.executeUpdate();
+                                        }
 
-            if (!schoolIdRs.next()) {
-                writer.println("School not found for the participant.");
-                return;
-            }
+                                        // Insert the user into the participants table
+                                        String insertParticipantQuery = "INSERT INTO participants (participant_id, school_id, challenge_id, attempts_left, total_score, completed, time_taken, created_at, updated_at) VALUES (?, ?, NULL, 3, 0, false, 0, now(), now())";
+                                        try (PreparedStatement insertParticipantStmt = conn
+                                                .prepareStatement(insertParticipantQuery)) {
+                                            insertParticipantStmt.setInt(1, userId);
+                                            insertParticipantStmt.setInt(2, schoolId); // Use school_id from schools
+                                                                                       // table
+                                            insertParticipantStmt.executeUpdate();
+                                        }
 
-            int schoolId = schoolIdRs.getInt("id");
+                                        writer.println("User " + username
+                                                + " confirmed successfully and added to participants.");
+                                    } else if (confirmation.equalsIgnoreCase("no")) {
+                                        // Move user to rejected_participants table and delete from users table
+                                        String rejectQuery = "INSERT INTO rejected_participants (participant_id, username, firstname, lastname, registration_number, reason, email, date_of_birth, created_at, updated_at) "
+                                                + "SELECT id, username, firstname, lastname, school_reg_no, 'Rejected by school representative', email, date_of_birth, now(), now() FROM users WHERE id = ?";
+                                        try (PreparedStatement rejectStmt = conn.prepareStatement(rejectQuery)) {
+                                            rejectStmt.setInt(1, userId);
+                                            rejectStmt.executeUpdate();
+                                        }
 
-            if (confirmation.equalsIgnoreCase("yes")) {
-                // Update participant status to active
-                String updateQuery = "UPDATE users SET status = 'active' WHERE id = ?";
-                PreparedStatement updateStmt = conn.prepareStatement(updateQuery);
-                updateStmt.setInt(1, userId);
-                updateStmt.executeUpdate();
+                                        String deleteQuery = "DELETE FROM users WHERE id = ?";
+                                        try (PreparedStatement deleteStmt = conn.prepareStatement(deleteQuery)) {
+                                            deleteStmt.setInt(1, userId);
+                                            deleteStmt.executeUpdate();
+                                    }
 
-                // Insert the user into the participants table
-                String insertParticipantQuery = "INSERT INTO participants (participant_id, school_id, challenge_id, attempts_left, total_score, completed, time_taken, created_at, updated_at) VALUES (?, ?, NULL, 3, 0, false, 0, now(), now())";
-                PreparedStatement insertParticipantStmt = conn.prepareStatement(insertParticipantQuery);
-                insertParticipantStmt.setInt(1, userId);
-                insertParticipantStmt.setInt(2, schoolId); // Use school_id from schools table
-                insertParticipantStmt.executeUpdate();
-
-                writer.println("User " + username + " confirmed successfully and added to participants.");
-            } else if (confirmation.equalsIgnoreCase("no")) {
-                // Move user to rejected_participants table and delete from users table
-                String rejectQuery = "INSERT INTO rejected_participants (participant_id, username, firstname, lastname, school_reg_no, reason, email, date_of_birth, created_at, updated_at) "
-                        + "SELECT id, username, firstname, lastname, school_reg_no, 'Rejected by school representative', email, date_of_birth, now(), now() FROM users WHERE id = ?";
-                PreparedStatement rejectStmt = conn.prepareStatement(rejectQuery);
-                rejectStmt.setInt(1, userId);
-                rejectStmt.executeUpdate();
-
-                String deleteQuery = "DELETE FROM users WHERE id = ?";
-                PreparedStatement deleteStmt = conn.prepareStatement(deleteQuery);
-                deleteStmt.setInt(1, userId);
-                deleteStmt.executeUpdate();
-
-                writer.println("User " + username + " confirmation denied.");
-            } else {
-                writer.println("Invalid confirmation. Use 'yes' or 'no'.");
+                                        writer.println("User " + username + " confirmation denied.");
+                                    } else {
+                                        writer.println("Invalid confirmation. Use 'yes' or 'no'.");
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         } catch (SQLException e) {
             writer.println("Confirmation failed: " + e.getMessage());
+            e.printStackTrace(); // Print the stack trace for debugging
         }
     }
 
@@ -531,34 +530,36 @@ public class Mainserver {
                 return;
             }
 
-            int userId = userRs.getInt("id");
+    int userId = userRs.getInt("id");
 
-            // Check remaining attempts outside of the ExecutorService
-            int attemptsLeft = getRemainingAttempts(conn, userId, challengeNumber);
-            if (attemptsLeft <= 0) {
-                writer.println("No attempts left for this challenge.");
-                return;
-            }
+    // Check if participant is assigned to the challenge and retrieve attempts left
+    int attemptsLeft = getRemainingAttempts(conn, userId, challengeNumber);
 
-        CountDownLatch latch = new CountDownLatch(1);
-
-        executorService.submit(() -> {
-            try {
-                attemptChallenge(challengeNumber, username, writer, reader);
-            } finally {
-                latch.countDown();
-            }
-        });
-
-        try {
-            latch.await(); // Wait for the challenge attempt to complete
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            writer.println("Challenge attempt was interrupted.");
-        }
-    } catch (SQLException e) {
-        writer.println("Failed to check remaining attempts: " + e.getMessage());
+    if (attemptsLeft <= 0) {
+        writer.println("No attempts left for this challenge.");
+        return;
     }
+
+    // Submit the challenge attempt asynchronously
+    CountDownLatch latch = new CountDownLatch(1);
+
+    executorService.submit(() -> {
+        try {
+            attemptChallenge(challengeNumber, username, writer, reader);
+        } finally {
+            latch.countDown();
+        }
+    });
+
+    try {
+        latch.await(); // Wait for the challenge attempt to complete
+    } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        writer.println("Challenge attempt was interrupted.");
+    }
+} catch (SQLException e) {
+    writer.println("Failed to check remaining attempts: " + e.getMessage());
+}
 }
 
 private static void attemptChallenge(int challengeNumber, String username, PrintWriter writer,
@@ -575,7 +576,27 @@ private static void attemptChallenge(int challengeNumber, String username, Print
             return;
         }
 
-        // int userId = userRs.getInt("id");
+        int userId = userRs.getInt("id");
+
+        // Check if participant is assigned to the challenge
+        String participantQuery = "SELECT attempts_left FROM participants WHERE participant_id = ? AND (challenge_id = ? OR challenge_id IS NULL)";
+        PreparedStatement participantStmt = conn.prepareStatement(participantQuery);
+        participantStmt.setInt(1, userId);
+        participantStmt.setInt(2, challengeNumber);
+        ResultSet participantRs = participantStmt.executeQuery();
+
+        if (!participantRs.next()) {
+            writer.println(
+                    "No record found for the given participant OR wait for confirmation from school representative");
+            return;
+        }
+
+        int attemptsLeft = participantRs.getInt("attempts_left");
+
+        if (attemptsLeft <= 0) {
+            writer.println("No remaining attempts for this challenge.");
+            return;
+        }
 
         // Retrieve and display challenge details
         String challengeQuery = "SELECT * FROM challenges WHERE id = ?";
@@ -583,47 +604,51 @@ private static void attemptChallenge(int challengeNumber, String username, Print
         challengeStmt.setInt(1, challengeNumber);
         ResultSet challengeRs = challengeStmt.executeQuery();
 
-        if (challengeRs.next()) {
-            displayChallengeDetails(writer, challengeRs);
+    if (challengeRs.next()) {
+        displayChallengeDetails(writer, challengeRs);
 
-            List<String> questions = fetchChallengeQuestions(conn, challengeRs.getInt("number_of_questions"));
+        List<String> questions = fetchChallengeQuestions(conn, challengeRs.getInt("number_of_questions"));
 
-            // Send username to the client
-            writer.println("username: " + username);
-            writer.flush();
-
-            startChallengeTimer(challengeNumber, username, questions, writer, challengeRs.getInt("duration"));
-
-            collectAndSubmitAnswers(challengeNumber, username, questions, writer, reader,
-                    challengeRs.getInt("duration"));
-        } else {
-            writer.println("Challenge not found or not valid.");
-        }
-    } catch (SQLException e) {
-        writer.println("Failed to retrieve challenge: " + e.getMessage());
+        // Send username to the client
+        writer.println("username: " + username);
         writer.flush();
+
+        startChallengeTimer(challengeNumber, username, questions, writer, challengeRs.getInt("duration"));
+
+        collectAndSubmitAnswers(challengeNumber, username, questions, writer, reader,
+                challengeRs.getInt("duration"));
+    } else {
+        writer.println("Challenge not found or not valid.");
     }
+} catch (SQLException e) {
+    writer.println("Failed to retrieve challenge: " + e.getMessage());
+    writer.flush();
+}
 }
 
 private static int getRemainingAttempts(Connection conn, int userId, int challengeNumber) throws SQLException {
-    String checkAttemptsQuery = "SELECT attempts_left FROM participants WHERE participant_id = ? AND challenge_id = ?";
+    String checkAttemptsQuery = "SELECT attempts_left FROM participants WHERE participant_id = ? AND (challenge_id = ? OR challenge_id IS NULL)";
     try (PreparedStatement checkStmt = conn.prepareStatement(checkAttemptsQuery)) {
         checkStmt.setInt(1, userId);
         checkStmt.setInt(2, challengeNumber);
         try (ResultSet rs = checkStmt.executeQuery()) {
-            // Assuming that a record always exists for the given userId and challengeNumber
-            rs.next(); // This will throw a SQLException if no row is found
-            return rs.getInt("attempts_left"); // Return the number of attempts left
+            if (rs.next()) {
+                return rs.getInt("attempts_left");
+            } else {
+                throw new SQLException(
+                        "No record found for the given participant OR wait for confirmation from school representative");
+            }
         }
     }
 }
 
 private static void displayChallengeDetails(PrintWriter writer, ResultSet challengeRs) throws SQLException {
-    writer.println("Challenge: " + challengeRs.getString("title") + "  " + "Description: "
-            + challengeRs.getString("description") + "  " + "Number of Questions: "
-            + challengeRs.getInt("number_of_questions") + "  " + "Duration: "
-            + challengeRs.getInt("duration") + " minutes");
-    writer.println("You have " + challengeRs.getInt("duration") + " minutes to complete the challenge." + " "
+    int duration = challengeRs.getInt("duration");
+    writer.println("Challenge: " + challengeRs.getString("title") + " " + "Description: "
+            + challengeRs.getString("description") + " " + "Number of Questions: "
+            + challengeRs.getInt("number_of_questions") + " " + "Duration: "
+            + duration + " minutes");
+    writer.println("You have " + duration + " minutes to complete the challenge." + " "
             + "Starting the challenge now..... press enter key to display the next question");
     writer.flush();
 }
@@ -647,7 +672,7 @@ private static void startChallengeTimer(int challengeNumber, String username, Li
     ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
     scheduler.schedule(() -> {
         try {
-            submitChallenge(challengeNumber, username, questions, new ArrayList<>(), new ArrayList<>(), writer);
+            submitChallenge(challengeNumber, username, questions, new ArrayList<>(), writer, duration);
         } catch (SQLException e) {
             writer.println("Failed to submit the challenge: " + e.getMessage());
             writer.flush();
@@ -656,84 +681,83 @@ private static void startChallengeTimer(int challengeNumber, String username, Li
 }
 
 private static void collectAndSubmitAnswers(int challengeNumber, String username, List<String> questions,
-        PrintWriter writer, BufferedReader reader, int duration) {
+        PrintWriter writer, BufferedReader reader, int duration) throws SQLException {
     try {
         List<String> answers = new ArrayList<>();
-        List<Long> timeSpent = new ArrayList<>();
         long startTime = System.currentTimeMillis();
+        long durationMillis = duration * 60 * 1000;
 
         for (String question : questions) {
-            writer.println("Question: " + question);
-            writer.flush(); // Ensure the question is sent to the client
-            writer.println("Enter your answer:");
-            writer.flush(); // Ensure the prompt is sent to the client
+        long currentTime = System.currentTimeMillis();
+        long totalTimeSpent = currentTime - startTime;
 
-            long questionStartTime = System.currentTimeMillis(); // Record the start time for the question
-
-            String answer = reader.readLine(); // Read the user's answer
-            answers.add(answer);
-
-            long questionEndTime = System.currentTimeMillis();
-            long timeSpentOnQuestion = questionEndTime - questionStartTime;
-            timeSpent.add(timeSpentOnQuestion); // Record the time spent on the question
-
-            long elapsedTime = System.currentTimeMillis() - startTime;
-            long remainingTime = duration * 60 * 1000 - elapsedTime; // Adjust as needed for total time logic
-            if (remainingTime <= 0) {
-                writer.println("Time is up! Submitting your answers now.");
-                writer.flush();
-                break;
-            }
-
-            // Calculate remaining minutes and seconds
-            long remainingMinutes = (remainingTime / 1000) / 60;
-            long remainingSeconds = (remainingTime / 1000) % 60;
-
-            writer.println("Answer received. Press Enter to display the next question. " +
-                    "Remaining Time: " + remainingMinutes + " minutes " + remainingSeconds + " seconds");
-
-            writer.flush(); // Ensure the prompt is sent to the client
-            reader.readLine(); // Wait for the user to press Enter
+        long remainingTime = durationMillis - totalTimeSpent;
+        if (remainingTime <= 0) {
+            writer.println("Time is up! Submitting your answers now.");
+            writer.flush();
+            break;
         }
 
-        writer.println("End of questions");
-        writer.flush(); // Ensure the end of questions message is sent to the client
-        submitChallenge(challengeNumber, username, questions, answers, timeSpent, writer);
+        writer.println("Question: " + question);
+        writer.flush();
+        writer.println("Enter your answer:");
+        writer.flush();
 
-    } catch (IOException | SQLException e) {
-        writer.println("Error during challenge attempt: " + e.getMessage());
-        writer.flush(); // Ensure the error message is sent to the client
+        String answer = reader.readLine();
+        answers.add(answer);
+
+        currentTime = System.currentTimeMillis();
+        totalTimeSpent = currentTime - startTime;
+        remainingTime = durationMillis - totalTimeSpent;
+
+        long remainingMinutes = remainingTime / 60000;
+        long remainingSeconds = (remainingTime / 1000) % 60;
+
+        writer.println("Answer received. Press Enter to display the next question. " +
+                "Remaining Time: " + remainingMinutes + " minutes " + remainingSeconds + " seconds");
+        writer.flush();
+        reader.readLine();
     }
+
+    writer.println("End of questions");
+    writer.flush();
+
+    // Submit the collected answers and total time spent to the server
+    long totalTimeSpent = System.currentTimeMillis() - startTime;
+    submitChallenge(challengeNumber, username, questions, answers, writer, totalTimeSpent);
+    writer.println("TotalTimeSpent: " + (totalTimeSpent / 1000));
+    writer.flush();
+
+} catch (IOException e) {
+    handleSQLException(e, writer);
+}
 }
 
-
 private static void submitChallenge(int challengeNumber, String username, List<String> questions,
-        List<String> userAnswers, List<Long> timeSpent, PrintWriter writer) throws SQLException {
+        List<String> answers, PrintWriter writer, long totalTimeSpent) throws SQLException {
     int participantId = getParticipantIdByUsername(username);
     Long schoolId = getSchoolIdByUsername(username);
 
     try (Connection conn = connectToDatabase()) {
         conn.setAutoCommit(false);
 
-        int challengeAttemptId = saveAttemptedChallenge(conn, participantId, challengeNumber, questions, userAnswers,
-                timeSpent);
+        int challengeAttemptId = saveAttemptedChallenge(conn, participantId, challengeNumber, questions, answers,
+                totalTimeSpent);
 
         ScoreResult scoreResult = calculateScoreFromAttemptedQuestions(conn, challengeAttemptId);
 
-        updateParticipant(conn, participantId, schoolId, challengeNumber, scoreResult, writer);
+        updateParticipant(conn, participantId, schoolId, challengeNumber, scoreResult, totalTimeSpent);
 
-        insertChallengeAttempt(conn, challengeNumber, participantId, scoreResult, writer);
+        insertChallengeAttempt(conn, challengeNumber, participantId, scoreResult, totalTimeSpent);
 
         conn.commit();
 
-        writer.println("Challenge submitted successfully. Your score: " + scoreResult.getTotalScore());
+        writer.println("Challenge submitted successfully. Your score: " + scoreResult);
         writer.flush();
 
-        // Notify the client and properly shutdown the thread
         writer.println("The challenge has been completed and submitted.");
         writer.flush();
 
-        // Gracefully shutdown the executor
         executorService.shutdown();
         if (!executorService.awaitTermination(1, TimeUnit.SECONDS)) {
             executorService.shutdownNow();
@@ -743,59 +767,93 @@ private static void submitChallenge(int challengeNumber, String username, List<S
     }
 }
 
-
 private static void insertChallengeAttempt(Connection conn, int challengeNumber, int participantId,
-        ScoreResult scoreResult,
-        PrintWriter writer) throws SQLException {
-    String insertAttempt = "INSERT INTO challenge_attempts (challenge_id, participant_id, score, deducted_marks, time_taken, completed, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())";
-    try (PreparedStatement insertStmt = conn.prepareStatement(insertAttempt)) {
-        insertStmt.setInt(1, challengeNumber);
-        insertStmt.setInt(2, participantId);
-        insertStmt.setInt(3, scoreResult.getTotalScore());
-        insertStmt.setInt(4, scoreResult.getDeductedMarks());
-        insertStmt.setLong(5, scoreResult.getTotalTimeSpent());
-        insertStmt.setBoolean(6, true);
-        insertStmt.executeUpdate();
+        ScoreResult scoreResult, long totalTimeSpent) throws SQLException {
+    // Check if an entry with zero values exists
+    String checkQuery = "SELECT id FROM challenge_attempts WHERE challenge_id = ? AND participant_id = ? AND score = 0 AND deducted_marks = 0 AND time_taken = 0";
+    Integer existingAttemptId = null;
+
+    try (PreparedStatement checkStmt = conn.prepareStatement(checkQuery)) {
+        checkStmt.setInt(1, challengeNumber);
+        checkStmt.setInt(2, participantId);
+        try (ResultSet rs = checkStmt.executeQuery()) {
+            if (rs.next()) {
+                existingAttemptId = rs.getInt("id");
+            }
+        }
+    }
+
+    if (existingAttemptId != null) {
+        // Update the existing entry
+        String updateAttempt = "UPDATE challenge_attempts SET score = ?, deducted_marks = ?, time_taken = ?, completed = ?, updated_at = NOW() WHERE id = ?";
+        try (PreparedStatement updateStmt = conn.prepareStatement(updateAttempt)) {
+            updateStmt.setInt(1, scoreResult.getTotalScore());
+            updateStmt.setInt(2, scoreResult.getDeductedMarks());
+            updateStmt.setLong(3, totalTimeSpent);
+            updateStmt.setBoolean(4, true);
+            updateStmt.setInt(5, existingAttemptId);
+            updateStmt.executeUpdate();
+        }
+    } else {
+        // Insert a new entry
+        String insertAttempt = "INSERT INTO challenge_attempts (challenge_id, participant_id, score, deducted_marks, time_taken, completed, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())";
+        try (PreparedStatement insertStmt = conn.prepareStatement(insertAttempt)) {
+            insertStmt.setInt(1, challengeNumber);
+            insertStmt.setInt(2, participantId);
+            insertStmt.setInt(3, scoreResult.getTotalScore());
+            insertStmt.setInt(4, scoreResult.getDeductedMarks());
+            insertStmt.setLong(5, totalTimeSpent);
+            insertStmt.setBoolean(6, true);
+            insertStmt.executeUpdate();
+        }
     }
 }
 
-
 private static void updateParticipant(Connection conn, int participantId, Long schoolId, int challengeNumber,
-        ScoreResult scoreResult, PrintWriter writer) throws SQLException {
-    // Query to check if a record exists with participant_id matching and
-    // challenge_id is null
-    String selectQuery = "SELECT COUNT(*) FROM participants WHERE participant_id = ? AND challenge_id IS NULL";
+        ScoreResult scoreResult, long totalTimeSpent) throws SQLException {
+    String selectQuery = "SELECT COUNT(*) FROM participants WHERE participant_id = ? AND (challenge_id IS NULL OR (challenge_id = ? AND (total_score IS NULL OR total_score = 0)))";
 
-    // Query to update the existing record
     String updateQuery = "UPDATE participants SET " +
             "challenge_id = ?, " +
             "attempts_left = attempts_left - 1, " +
             "total_score = total_score + ?, " +
             "time_taken = time_taken + ? " +
-            "WHERE participant_id = ? AND challenge_id IS NULL";
+            "WHERE participant_id = ? AND challenge_id = ? AND (total_score IS NULL OR total_score = 0)";
 
-    // Query to insert a new record if no matching record is found
+    String selectExistingParticipantQuery = "SELECT participant_id FROM participants WHERE participant_id = ? AND challenge_id = ? AND total_score != 0";
+
     String insertQuery = "INSERT INTO participants (participant_id, school_id, challenge_id, attempts_left, total_score, time_taken) "
             +
             "VALUES (?, ?, ?, ?, ?, ?)";
 
     try (PreparedStatement selectStmt = conn.prepareStatement(selectQuery)) {
         selectStmt.setInt(1, participantId);
+        selectStmt.setInt(2, challengeNumber);
         try (ResultSet rs = selectStmt.executeQuery()) {
-            long totalTimeSpent = scoreResult.getTotalTimeSpent();
             if (rs.next() && rs.getInt(1) > 0) {
-                // Record exists, perform update
                 try (PreparedStatement updateStmt = conn.prepareStatement(updateQuery)) {
                     updateStmt.setInt(1, challengeNumber);
                     updateStmt.setInt(2, scoreResult.getTotalScore());
                     updateStmt.setLong(3, totalTimeSpent);
                     updateStmt.setInt(4, participantId);
+                    updateStmt.setInt(5, challengeNumber);
                     updateStmt.executeUpdate();
                 }
             } else {
-                // No matching record found, insert new record
+                int existingParticipantId = participantId;
+                try (PreparedStatement selectExistingParticipantStmt = conn
+                        .prepareStatement(selectExistingParticipantQuery)) {
+                    selectExistingParticipantStmt.setInt(1, participantId);
+                    selectExistingParticipantStmt.setInt(2, challengeNumber);
+                    try (ResultSet rsExisting = selectExistingParticipantStmt.executeQuery()) {
+                        if (rsExisting.next()) {
+                            existingParticipantId = rsExisting.getInt("participant_id");
+                        }
+                    }
+                }
+
                 try (PreparedStatement insertStmt = conn.prepareStatement(insertQuery)) {
-                    insertStmt.setInt(1, participantId);
+                    insertStmt.setInt(1, existingParticipantId);
                     insertStmt.setLong(2, schoolId);
                     insertStmt.setInt(3, challengeNumber);
                     insertStmt.setInt(4, getRemainingAttempts(conn, participantId, challengeNumber) - 1);
@@ -809,53 +867,78 @@ private static void updateParticipant(Connection conn, int participantId, Long s
 }
 
 private static void handleSQLException(Exception e, PrintWriter writer) {
-        writer.println("An error occurred: " + e.getMessage());
-    }
+    writer.println("An error occurred: " + e.getMessage());
+}
 
-    private static int saveAttemptedChallenge(Connection conn, int participantId, int challengeNumber,
-            List<String> questions, List<String> userAnswers, List<Long> timeSpent) throws SQLException {
-        String insertAttempt = "INSERT INTO challenge_attempts (challenge_id, participant_id, score, deducted_marks, time_taken, completed, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())";
-        try (PreparedStatement insertAttemptStmt = conn.prepareStatement(insertAttempt,
-                Statement.RETURN_GENERATED_KEYS)) {
-            insertAttemptStmt.setInt(1, challengeNumber);
-            insertAttemptStmt.setInt(2, participantId);
-            insertAttemptStmt.setInt(3, 0); // Temporary score
-            insertAttemptStmt.setInt(4, 0); // Temporary deducted marks
-            insertAttemptStmt.setInt(5, 0); // Temporary duration
-            insertAttemptStmt.setBoolean(6, false); // Initially not completed
-            insertAttemptStmt.executeUpdate();
-
-            try (ResultSet generatedKeys = insertAttemptStmt.getGeneratedKeys()) {
-                if (generatedKeys.next()) {
-                    int challengeAttemptId = generatedKeys.getInt(1);
-                    saveAttemptedQuestions(conn, participantId, challengeAttemptId, questions, userAnswers, null);
-                    return challengeAttemptId;
-                } else {
-                    throw new SQLException("Failed to obtain challenge attempt ID.");
-                }
+private static int saveAttemptedChallenge(Connection conn, int participantId, int challengeNumber,
+        List<String> questions, List<String> userAnswers, long totalTimeSpent) throws SQLException {
+    // Check if participant exists in the participants table
+    String checkParticipantQuery = "SELECT COUNT(*) FROM participants WHERE participant_id = ?";
+    try (PreparedStatement checkStmt = conn.prepareStatement(checkParticipantQuery)) {
+        checkStmt.setInt(1, participantId);
+        try (ResultSet rs = checkStmt.executeQuery()) {
+            if (rs.next() && rs.getInt(1) == 0) {
+                throw new SQLException(
+                        "Participant ID " + participantId + " does not exist in the participants table.");
             }
         }
     }
 
-    private static void saveAttemptedQuestions(Connection conn, int participantId, int challengeAttemptId,
-            List<String> questions, List<String> userAnswers, List<Long> timeSpent) throws SQLException {
-        String insertQuestion = "INSERT INTO attempted_questions (participant_id, challenge_attempt_id, question_id, given_answer, marks_awarded, is_repeated, time_spent, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())";
-        try (PreparedStatement insertQuestionStmt = conn.prepareStatement(insertQuestion)) {
-            for (int i = 0; i < questions.size(); i++) {
-                int questionId = getQuestionIdByText(conn, questions.get(i));
-                int marksAwarded = getMarksAwarded(conn, questionId, userAnswers.get(i));
-                insertQuestionStmt.setInt(1, participantId);
-                insertQuestionStmt.setInt(2, challengeAttemptId);
-                insertQuestionStmt.setInt(3, questionId);
-                insertQuestionStmt.setString(4, userAnswers.get(i));
-                insertQuestionStmt.setInt(5, marksAwarded);
-                insertQuestionStmt.setBoolean(6, false); // Default to false for is_repeated
-                insertQuestionStmt.setLong(7, timeSpent.get(i)); // Time spent on this question
-        insertQuestionStmt.addBatch();
+    String insertAttempt = "INSERT INTO challenge_attempts (challenge_id, participant_id, score, deducted_marks, time_taken, completed, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())";
+    try (PreparedStatement insertAttemptStmt = conn.prepareStatement(insertAttempt, Statement.RETURN_GENERATED_KEYS)) {
+        insertAttemptStmt.setInt(1, challengeNumber);
+        insertAttemptStmt.setInt(2, participantId);
+        insertAttemptStmt.setInt(3, 0);
+        insertAttemptStmt.setInt(4, 0);
+        insertAttemptStmt.setInt(5, 0);
+        insertAttemptStmt.setBoolean(6, false);
+        insertAttemptStmt.executeUpdate();
+
+        try (ResultSet generatedKeys = insertAttemptStmt.getGeneratedKeys()) {
+            if (generatedKeys.next()) {
+                int challengeAttemptId = generatedKeys.getInt(1);
+                saveAttemptedQuestions(conn, participantId, challengeAttemptId, questions, userAnswers, null);
+                return challengeAttemptId;
+            } else {
+                throw new SQLException("Failed to obtain challenge attempt ID.");
+            }
+        }
     }
-    insertQuestionStmt.executeBatch();
 }
+
+private static void saveAttemptedQuestions(Connection conn, int participantId, int challengeAttemptId,
+        List<String> questions, List<String> userAnswers, Object object) throws SQLException {
+    // Step 1: Retrieve participant's ID
+    String getParticipantIdQuery = "SELECT id FROM participants WHERE participant_id = ?";
+    int actualParticipantId;
+    try (PreparedStatement getParticipantIdStmt = conn.prepareStatement(getParticipantIdQuery)) {
+        getParticipantIdStmt.setInt(1, participantId);
+        ResultSet rs = getParticipantIdStmt.executeQuery();
+        if (rs.next()) {
+            actualParticipantId = rs.getInt("id");
+        } else {
+            throw new SQLException("Participant ID " + participantId + " does not exist in the participants table.");
+        }
+    }
+
+    // Step 2: Insert attempted questions
+    String insertQuestion = "INSERT INTO attempted_questions (participant_id, challenge_attempt_id, question_id, given_answer, marks_awarded, is_repeated, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())";
+    try (PreparedStatement insertQuestionStmt = conn.prepareStatement(insertQuestion)) {
+        for (int i = 0; i < questions.size(); i++) {
+            int questionId = getQuestionIdByText(conn, questions.get(i));
+            int marksAwarded = getMarksAwarded(conn, questionId, userAnswers.get(i));
+            insertQuestionStmt.setInt(1, actualParticipantId);
+            insertQuestionStmt.setInt(2, challengeAttemptId);
+            insertQuestionStmt.setInt(3, questionId);
+            insertQuestionStmt.setString(4, userAnswers.get(i));
+            insertQuestionStmt.setInt(5, marksAwarded);
+            insertQuestionStmt.setBoolean(6, false);
+            insertQuestionStmt.addBatch();
+        }
+        insertQuestionStmt.executeBatch();
+    }
 }
+
 
     private static int getQuestionIdByText(Connection conn, String questionText) throws SQLException {
         String questionQuery = "SELECT id FROM questions WHERE question_text = ?";
@@ -920,16 +1003,16 @@ private static void handleSQLException(Exception e, PrintWriter writer) {
         }
 
         // Calculate the total score and total time spent
-        String scoreAndTimeQuery = "SELECT SUM(marks_awarded) AS total_score, SUM(time_spent) AS total_time_spent FROM attempted_questions WHERE challenge_attempt_id = ?";
+        String scoreAndTimeQuery = "SELECT SUM(marks_awarded) AS total_score FROM attempted_questions WHERE challenge_attempt_id = ?";
         try (PreparedStatement scoreAndTimeStmt = conn.prepareStatement(scoreAndTimeQuery)) {
             scoreAndTimeStmt.setInt(1, challengeAttemptId);
             try (ResultSet rs = scoreAndTimeStmt.executeQuery()) {
                 if (rs.next()) {
                     int totalScore = rs.getInt("total_score");
-                    long totalTimeSpent = rs.getLong("total_time_spent");
+
 
                     // Return the total score, deducted marks, and total time spent
-                    return new ScoreResult(totalScore, totalDeductedMarks, totalTimeSpent);
+                    return new ScoreResult(totalScore, totalDeductedMarks);
                 } else {
                     throw new SQLException(
                             "Failed to retrieve scores and time spent for challenge attempt ID: " + challengeAttemptId);
@@ -960,12 +1043,12 @@ private static Long getSchoolIdByUsername(String username) throws SQLException {
     // Helper method to get participant ID by username
     private static int getParticipantIdByUsername(String username) throws SQLException {
         try (Connection conn = connectToDatabase()) {
-            String query = "SELECT p.id FROM participants p JOIN users u ON p.participant_id = u.id WHERE u.username = ?";
+            String query = "SELECT p.participant_id FROM participants p JOIN users u ON p.participant_id = u.id WHERE u.username = ?";
             PreparedStatement stmt = conn.prepareStatement(query);
             stmt.setString(1, username);
             ResultSet rs = stmt.executeQuery();
             if (rs.next()) {
-                return rs.getInt("id");
+                return rs.getInt("participant_id");
             } else {
                 throw new SQLException("Participant not found.");
             }

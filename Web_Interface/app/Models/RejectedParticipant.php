@@ -11,7 +11,14 @@ class RejectedParticipant extends Model
 
     protected $fillable = [
         'participant_id',
+        'username',
+        'firstname',
+        'lastname',
+        'school_id',
         'reason',
+        'email',
+        'date_of_birth',
+        
     ];
 
     public function user()

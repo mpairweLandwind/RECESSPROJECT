@@ -12,17 +12,18 @@ return new class extends Migration {
     {
         Schema::create('rejected_participants', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('participant_id')->constrained('users');
+            $table->integer('participant_id');
             $table->string('username');
             $table->string('firstname');
             $table->string('lastname');
-            $table->foreignId('school_id')->constrained('schools')->onDelete('cascade');
+            $table->string('registration_number');// Define the column with the correct data type          
             $table->text('reason');
             $table->string('email');
             $table->date('date_of_birth');
             $table->timestamps();
             $table->unique('participant_id');
         });
+        
     }
 
     /**

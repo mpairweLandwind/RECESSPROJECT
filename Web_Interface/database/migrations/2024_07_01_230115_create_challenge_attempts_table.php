@@ -13,13 +13,15 @@ return new class extends Migration {
         Schema::create('challenge_attempts', function (Blueprint $table) {
             $table->id();
             $table->foreignId('challenge_id')->constrained('challenges')->onDelete('cascade');
-            $table->foreignId('participant_id')->constrained('participants')->onDelete('cascade');
+            $table->unsignedBigInteger('participant_id');
+            $table->foreign('participant_id')->references('participant_id')->on('participants')->onDelete('cascade');
             $table->integer('score');
             $table->integer('deducted_marks');
             $table->integer('time_taken');
             $table->boolean('completed')->default(false);
             $table->timestamps();
         });
+        
     }
 
     /**

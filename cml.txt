@@ -1,0 +1,21 @@
+java -cp .:/usr/share/java/postgresql-jdbc.jar:lib/*  CML_Interface.Mainserver alien  alien123.com
+
+register lilian Nankunda Lilian nankundalilian@gmail.com 1995-06-15 U023 /home/landwind/RecessProject/alien.jpg lilian123.com
+javac -proc:none -cp .:/usr/share/java/postgresql-jdbc.jar:lib/* CML_Interface/Mainserver.java
+
+uploadAnswers /home/landwind/RecessProject/answers.xlsx
+
+uploadQuestions  /home/landwind/RecessProject/questions.xlsx
+
+java  CML_Interface.Client
+javac  CML_Interface/Client.java
+
+register brian brian yuyen brianyuyen@gmail.com 1996-06-15 U023 /home/landwind/RecessProject/alien.jpg brian123.com
+
+import javax.mail.PasswordAuthentication;
+
+ start_date      |      end_date       |    
+----+---------+-------------------+----
+  | 2024-07-11 10:00:00 | 2024-07-18 23:58:00 
+
+postgresql://postgres.vniqmjgcmhhmocvxgdeb:[YOUR-PASSWORD]@aws-0-eu-central-1.pooler.supabase.com:6543/postgres

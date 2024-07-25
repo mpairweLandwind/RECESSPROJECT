@@ -27,4 +27,10 @@ class AttemptedQuestion extends Model
     {
         return $this->belongsTo(Participant::class);
     }
+
+    public function question()
+    {
+        return $this->belongsTo(Question::class, 'question_id');
+    }
+    
 }

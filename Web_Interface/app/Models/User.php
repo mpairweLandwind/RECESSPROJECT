@@ -68,7 +68,7 @@ class User extends Authenticatable
         return $this->hasMany(School::class, 'representative_id');
     }
 
-    public function participants()
+    public function participant()
     {
         return $this->hasMany(Participant::class);
     }

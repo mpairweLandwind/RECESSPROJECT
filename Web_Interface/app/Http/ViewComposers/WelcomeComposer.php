@@ -6,26 +6,48 @@ use App\Models\School;
 use App\Models\Participant;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
+use App\Models\RejectedParticipant;
+use App\Models\AttemptedQuestion;
+use App\Models\Question;
+use App\Models\User;
+
+
 
 class WelcomeComposer
 {
     public function compose(View $view)
     {
         $schoolCount = School::count();
-        $activeParticipantsCount = Participant::whereHas('challenges', function ($query) {
-            $query->where('challenge_participants.status', 'active');
-        })->count();
+        $activeParticipantsCount = Participant::whereNotNull('challenge_id')
+        ->where('time_taken', '>', 0)
+        ->distinct('participant_id')
+        ->count('participant_id');
 
-        $rejectedParticipantsCount = Participant::whereHas('challenges', function ($query) {
-            $query->where('challenge_participants.status', 'rejected');
-        })->count();
 
-        $mostCorrectlyAnsweredQuestions = Participant::with('attemptedQuestions')
-            ->get()
-            ->sortByDesc(function ($participant) {
-                return $participant->attemptedQuestions->sum('marks_awarded');
-            })
-            ->take(10);
+        $rejectedParticipantsCount = RejectedParticipant::whereNotNull('reason')->count();
+
+
+        $mostCorrectlyAnsweredQuestions = AttemptedQuestion::select('question_id', DB::raw('count(*) as count'))
+        ->where('marks_awarded', '>', 0)
+        ->groupBy('question_id')
+        ->orderByDesc('count')
+        ->take(5)
+        ->with('question') // Assuming the relationship method is 'question'
+        ->get();
+
+        // Fetching the best two participants
+        $topParticipants = Participant::with(['school', 'user'])
+        ->orderBy('total_score', 'desc')
+        ->take(2)
+        ->get();
+
+
+        $highScores = Participant::select('challenge_id', DB::raw('MAX(total_score) as high_score'))
+        ->whereIn('challenge_id', [1, 2, 3]) // Filter for specific challenges
+        ->groupBy('challenge_id')
+        ->pluck('high_score', 'challenge_id')
+        ->toArray();
+
 
         $schoolRankings = School::withCount('participants')
             ->with([
@@ -41,13 +63,12 @@ class WelcomeComposer
 
         $performanceChartData = $this->getPerformanceChartData();
 
-        $questionRepetition = Participant::withCount([
-            'attemptedQuestions as repeated_question_count' => function ($query) {
-                $query->where('is_repeated', true);
-            }
-        ])
-            ->orderBy('repeated_question_count', 'desc')
-            ->get();
+        $questionRepetition = AttemptedQuestion::select('question_id', DB::raw('COUNT(*) as total_attempts'), DB::raw('SUM(case when is_repeated = true then 1 else 0 end) as repeated_count'), DB::raw('SUM(case when is_repeated = true then 1 else 0 end) / COUNT(*) * 100 as repetition_percentage'))
+        ->groupBy('question_id')
+        ->orderBy('repetition_percentage', 'desc')
+        ->with('question')
+        ->limit(5) // Assuming the relationship method is 'question'
+        ->get();
 
         $worstPerformingSchools = School::with([
             'participants' => function ($query) {
@@ -63,7 +84,7 @@ class WelcomeComposer
                     ->groupBy('school_id')
                     ->orderBy('total_score', 'desc');
             }
-        ])->take(10)->get();
+        ])->take(5)->get();
 
         $incompleteParticipants = Participant::whereHas('challenges', function ($query) {
             $query->where('challenge_participants.status', 'incomplete');
@@ -71,15 +92,14 @@ class WelcomeComposer
 
         $monthlyRegistrationData = $this->getMonthlyRegistrationData();
 
-        // Fetching the best two participants
-        $topParticipants = Participant::with('school')
-            ->orderBy('total_score', 'desc')
-            ->take(2)
-            ->get();
+       
+     
 
         $view->with(
             compact(
                 'schoolCount',
+                'highScores',
+                'topParticipants',
                 'activeParticipantsCount',
                 'rejectedParticipantsCount',
                 'mostCorrectlyAnsweredQuestions',
@@ -90,8 +110,8 @@ class WelcomeComposer
                 'worstPerformingSchools',
                 'bestPerformingSchools',
                 'incompleteParticipants',
-                'monthlyRegistrationData',
-                'topParticipants' // Pass the top participants to the view
+                'monthlyRegistrationData'
+                 
             )
         );
     }

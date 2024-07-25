@@ -53,6 +53,10 @@ public class Client {
                 break;
 
             }
+            else if(response.startsWith("Challenge submitted successfully")){
+                System.out.println(response);
+                break;
+            }
 
             else if (response.startsWith("Challenge submitted successfully")) {
                 System.out.println(response);
@@ -147,8 +151,9 @@ public class Client {
                             long elapsedTime = currentTime - startTime;
     
                             // Check if the total time spent exceeds the duration of the challenge
-                            if (elapsedTime >= duration) {
+                            if (elapsedTime == duration) {
                                 writer.println("Time is up! Submitting your answers now.");
+                                submitChallenge(response, questions, answers, username);
                                 writer.flush();
                                 break;
                             }
@@ -169,10 +174,17 @@ public class Client {
                                    
                             break;
 
+                    
                         
+                        }else if (line.startsWith("Challenge submitted successfully")){
+                            System.out.println(line);
+                            break; // End of challenge submission process
+                        }
                         
-                        } else {
-                            System.out.println(line); // Display any additional information
+                        else {
+                            System.out.println(line);
+                             // Display any additional information
+                             break;
                         }
                     }
     
@@ -204,8 +216,7 @@ public class Client {
     for (String answer : answers) {
         writer.println(answer);
     }
-    // writer.println("TotalTimeSpent: " + totalTimeSpent); // Ensure this line is correctly sending the total time spent
-    // writer.flush(); // Ensure all data is sent to the server
+
 }
 
 
@@ -232,7 +243,7 @@ public class Client {
         // Print table headers
         System.out.println("                           Available Challenges \n");
         System.out.println(
-                "Challenge_ID   Title           Description                Status    Number_Of_Questions     start_Date                   End_Date                     Duration  ");
+                "Challenge_ID   Title           Description      Status    Number_Of_Questions     start_Date                   End_Date                     Duration  ");
 
         for (String row : rows) {
             // Split each row into individual columns

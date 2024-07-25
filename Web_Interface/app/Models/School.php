@@ -20,8 +20,9 @@ class School extends Model
     ];
     public function participants()
     {
-        return $this->hasMany(Participant::class);
-    }    
+        return $this->hasMany(Participant::class, 'school_id');
+    }
+       
     public function representative()
     {
         return $this->belongsTo(User::class, 'representative_id');

@@ -397,7 +397,11 @@ public class Mainserver {
         try (Connection conn = connectToDatabase()) {
             // Update SQL query to select challenges where current date is between
             // start_date and end_date
-            String sql = "SELECT * FROM challenges WHERE NOW() BETWEEN start_date AND end_date ";
+            String sql = " SELECT * \n" + //
+                    "FROM challenges \n" + //
+                    "WHERE end_date = (SELECT MAX(end_date) FROM challenges)\n" + //
+                    "   OR start_date <= NOW() AND end_date >= NOW();\n" + //
+                    "";
             Statement stmt = conn.createStatement();
             ResultSet rs = stmt.executeQuery(sql);
 
@@ -417,7 +421,7 @@ public class Mainserver {
                         .append(title).append("  ")
                         .append(description).append("  ")
                         .append(status).append("  ")
-                        .append(numberOfQuestions).append("    ")
+                        .append(numberOfQuestions).append("     ")
                         .append(startDate).append("AM ")
                         .append(endDate).append("PM ")
                         .append(duration).append("Mins").append("\t");
@@ -679,58 +683,75 @@ private static void startChallengeTimer(int challengeNumber, String username, Li
         }
     }, duration, TimeUnit.MINUTES);
 }
-
 private static void collectAndSubmitAnswers(int challengeNumber, String username, List<String> questions,
         PrintWriter writer, BufferedReader reader, int duration) throws SQLException {
+    List<String> answers = new ArrayList<>();
+    long startTime = System.currentTimeMillis();
+    long durationMillis = duration * 60 * 1000;
+
     try {
-        List<String> answers = new ArrayList<>();
-        long startTime = System.currentTimeMillis();
-        long durationMillis = duration * 60 * 1000;
-
         for (String question : questions) {
-        long currentTime = System.currentTimeMillis();
-        long totalTimeSpent = currentTime - startTime;
+            long totalTimeSpent = System.currentTimeMillis() - startTime;
+            long remainingTime = durationMillis - totalTimeSpent;
 
-        long remainingTime = durationMillis - totalTimeSpent;
-        if (remainingTime <= 0) {
-            writer.println("Time is up! Submitting your answers now.");
+            if (remainingTime <= 0) {
+                writer.println("Time is up! Submitting your answers now.");
+                writer.flush();
+                break;
+            }
+
+            writer.println("Question: " + question);
             writer.flush();
-            break;
+            writer.println("Enter your answer:");
+            writer.flush();
+
+            String answer = reader.readLine();
+            answers.add(answer);
+
+            totalTimeSpent = System.currentTimeMillis() - startTime;
+            remainingTime = durationMillis - totalTimeSpent;
+
+            if (remainingTime > 0) {
+                long remainingMinutes = remainingTime / 60000;
+                long remainingSeconds = (remainingTime / 1000) % 60;
+
+                writer.println("Answer received. Press Enter to display the next question. " +
+                        "Remaining Time: " + remainingMinutes + " minutes " + remainingSeconds + " seconds");
+                writer.flush();
+                reader.readLine();
+            } else {
+                writer.println("Time is up! Submitting your answers now.");
+                writer.flush();
+                break;
+            }
         }
 
-        writer.println("Question: " + question);
-        writer.flush();
-        writer.println("Enter your answer:");
+        writer.println("End of questions");
         writer.flush();
 
-        String answer = reader.readLine();
-        answers.add(answer);
-
-        currentTime = System.currentTimeMillis();
-        totalTimeSpent = currentTime - startTime;
-        remainingTime = durationMillis - totalTimeSpent;
-
-        long remainingMinutes = remainingTime / 60000;
-        long remainingSeconds = (remainingTime / 1000) % 60;
-
-        writer.println("Answer received. Press Enter to display the next question. " +
-                "Remaining Time: " + remainingMinutes + " minutes " + remainingSeconds + " seconds");
+        // Submit the collected answers and total time spent to the server
+        long totalTimeSpent = System.currentTimeMillis() - startTime;
+        submitChallenge(challengeNumber, username, questions, answers, writer, totalTimeSpent);
+        writer.println("TotalTimeSpent: " + (totalTimeSpent / 1000) + " seconds");
         writer.flush();
-        reader.readLine();
+
+    } catch (IOException e) {
+        handleIOException(e, writer);
+    } catch (SQLException e) {
+        handleSQLException(e, writer);
     }
-
-    writer.println("End of questions");
-    writer.flush();
-
-    // Submit the collected answers and total time spent to the server
-    long totalTimeSpent = System.currentTimeMillis() - startTime;
-    submitChallenge(challengeNumber, username, questions, answers, writer, totalTimeSpent);
-    writer.println("TotalTimeSpent: " + (totalTimeSpent / 1000));
-    writer.flush();
-
-} catch (IOException e) {
-    handleSQLException(e, writer);
 }
+
+private static void handleIOException(IOException e, PrintWriter writer) {
+    writer.println("An error occurred while reading your input. Please try again.");
+    writer.flush();
+    e.printStackTrace();
+}
+
+private static void handleSQLException(SQLException e, PrintWriter writer) {
+    writer.println("An error occurred while submitting your answers. Please contact support.");
+    writer.flush();
+    e.printStackTrace();
 }
 
 private static void submitChallenge(int challengeNumber, String username, List<String> questions,
@@ -770,145 +791,6 @@ private static void submitChallenge(int challengeNumber, String username, List<S
 private static void insertChallengeAttempt(Connection conn, int challengeNumber, int participantId,
         ScoreResult scoreResult, long totalTimeSpent) throws SQLException {
     // Check if an entry with zero values exists
-    String checkQuery = "SELECT id FROM challenge_attempts WHERE challenge_id = ? AND participant_id = ? AND score = 0 AND deducted_marks = 0 AND time_taken = 0";
-    Integer existingAttemptId = null;
-
-    try (PreparedStatement checkStmt = conn.prepareStatement(checkQuery)) {
-        checkStmt.setInt(1, challengeNumber);
-        checkStmt.setInt(2, participantId);
-        try (ResultSet rs = checkStmt.executeQuery()) {
-            if (rs.next()) {
-                existingAttemptId = rs.getInt("id");
-            }
-        }
-    }
-
-    if (existingAttemptId != null) {
-        // Update the existing entry
-        String updateAttempt = "UPDATE challenge_attempts SET score = ?, deducted_marks = ?, time_taken = ?, completed = ?, updated_at = NOW() WHERE id = ?";
-        try (PreparedStatement updateStmt = conn.prepareStatement(updateAttempt)) {
-            updateStmt.setInt(1, scoreResult.getTotalScore());
-            updateStmt.setInt(2, scoreResult.getDeductedMarks());
-            updateStmt.setLong(3, totalTimeSpent);
-            updateStmt.setBoolean(4, true);
-            updateStmt.setInt(5, existingAttemptId);
-            updateStmt.executeUpdate();
-        }
-    } else {
-        // Insert a new entry
-        String insertAttempt = "INSERT INTO challenge_attempts (challenge_id, participant_id, score, deducted_marks, time_taken, completed, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())";
-        try (PreparedStatement insertStmt = conn.prepareStatement(insertAttempt)) {
-            insertStmt.setInt(1, challengeNumber);
-            insertStmt.setInt(2, participantId);
-            insertStmt.setInt(3, scoreResult.getTotalScore());
-            insertStmt.setInt(4, scoreResult.getDeductedMarks());
-            insertStmt.setLong(5, totalTimeSpent);
-            insertStmt.setBoolean(6, true);
-            insertStmt.executeUpdate();
-        }
-    }
-}
-
-private static void updateParticipant(Connection conn, int participantId, Long schoolId, int challengeNumber,
-        ScoreResult scoreResult, long totalTimeSpent) throws SQLException {
-    String selectQuery = "SELECT COUNT(*) FROM participants WHERE participant_id = ? AND (challenge_id IS NULL OR (challenge_id = ? AND (total_score IS NULL OR total_score = 0)))";
-
-    String updateQuery = "UPDATE participants SET " +
-            "challenge_id = ?, " +
-            "attempts_left = attempts_left - 1, " +
-            "total_score = total_score + ?, " +
-            "time_taken = time_taken + ? " +
-            "WHERE participant_id = ? AND challenge_id = ? AND (total_score IS NULL OR total_score = 0)";
-
-    String selectExistingParticipantQuery = "SELECT participant_id FROM participants WHERE participant_id = ? AND challenge_id = ? AND total_score != 0";
-
-    String insertQuery = "INSERT INTO participants (participant_id, school_id, challenge_id, attempts_left, total_score, time_taken) "
-            +
-            "VALUES (?, ?, ?, ?, ?, ?)";
-
-    try (PreparedStatement selectStmt = conn.prepareStatement(selectQuery)) {
-        selectStmt.setInt(1, participantId);
-        selectStmt.setInt(2, challengeNumber);
-        try (ResultSet rs = selectStmt.executeQuery()) {
-            if (rs.next() && rs.getInt(1) > 0) {
-                try (PreparedStatement updateStmt = conn.prepareStatement(updateQuery)) {
-                    updateStmt.setInt(1, challengeNumber);
-                    updateStmt.setInt(2, scoreResult.getTotalScore());
-                    updateStmt.setLong(3, totalTimeSpent);
-                    updateStmt.setInt(4, participantId);
-                    updateStmt.setInt(5, challengeNumber);
-                    updateStmt.executeUpdate();
-                }
-            } else {
-                int existingParticipantId = participantId;
-                try (PreparedStatement selectExistingParticipantStmt = conn
-                        .prepareStatement(selectExistingParticipantQuery)) {
-                    selectExistingParticipantStmt.setInt(1, participantId);
-                    selectExistingParticipantStmt.setInt(2, challengeNumber);
-                    try (ResultSet rsExisting = selectExistingParticipantStmt.executeQuery()) {
-                        if (rsExisting.next()) {
-                            existingParticipantId = rsExisting.getInt("participant_id");
-                        }
-                    }
-                }
-
-                try (PreparedStatement insertStmt = conn.prepareStatement(insertQuery)) {
-                    insertStmt.setInt(1, existingParticipantId);
-                    insertStmt.setLong(2, schoolId);
-                    insertStmt.setInt(3, challengeNumber);
-                    insertStmt.setInt(4, getRemainingAttempts(conn, participantId, challengeNumber) - 1);
-                    insertStmt.setInt(5, scoreResult.getTotalScore());
-                    insertStmt.setLong(6, totalTimeSpent);
-                    insertStmt.executeUpdate();
-                }
-            }
-        }
-    }
-}
-
-private static void handleSQLException(Exception e, PrintWriter writer) {
-    writer.println("An error occurred: " + e.getMessage());
-}
-
-private static int saveAttemptedChallenge(Connection conn, int participantId, int challengeNumber,
-        List<String> questions, List<String> userAnswers, long totalTimeSpent) throws SQLException {
-    // Check if participant exists in the participants table
-    String checkParticipantQuery = "SELECT COUNT(*) FROM participants WHERE participant_id = ?";
-    try (PreparedStatement checkStmt = conn.prepareStatement(checkParticipantQuery)) {
-        checkStmt.setInt(1, participantId);
-        try (ResultSet rs = checkStmt.executeQuery()) {
-            if (rs.next() && rs.getInt(1) == 0) {
-                throw new SQLException(
-                        "Participant ID " + participantId + " does not exist in the participants table.");
-            }
-        }
-    }
-
-    String insertAttempt = "INSERT INTO challenge_attempts (challenge_id, participant_id, score, deducted_marks, time_taken, completed, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())";
-    try (PreparedStatement insertAttemptStmt = conn.prepareStatement(insertAttempt, Statement.RETURN_GENERATED_KEYS)) {
-        insertAttemptStmt.setInt(1, challengeNumber);
-        insertAttemptStmt.setInt(2, participantId);
-        insertAttemptStmt.setInt(3, 0);
-        insertAttemptStmt.setInt(4, 0);
-        insertAttemptStmt.setInt(5, 0);
-        insertAttemptStmt.setBoolean(6, false);
-        insertAttemptStmt.executeUpdate();
-
-        try (ResultSet generatedKeys = insertAttemptStmt.getGeneratedKeys()) {
-            if (generatedKeys.next()) {
-                int challengeAttemptId = generatedKeys.getInt(1);
-                saveAttemptedQuestions(conn, participantId, challengeAttemptId, questions, userAnswers, null);
-                return challengeAttemptId;
-            } else {
-                throw new SQLException("Failed to obtain challenge attempt ID.");
-            }
-        }
-    }
-}
-
-private static void saveAttemptedQuestions(Connection conn, int participantId, int challengeAttemptId,
-        List<String> questions, List<String> userAnswers, Object object) throws SQLException {
-    // Step 1: Retrieve participant's ID
     String getParticipantIdQuery = "SELECT id FROM participants WHERE participant_id = ?";
     int actualParticipantId;
     try (PreparedStatement getParticipantIdStmt = conn.prepareStatement(getParticipantIdQuery)) {
@@ -921,13 +803,215 @@ private static void saveAttemptedQuestions(Connection conn, int participantId, i
         }
     }
 
+    // Check if a challenge attempt exists with zero values
+    String checkQuery = "SELECT id FROM challenge_attempts WHERE challenge_id = ? AND participant_id = ? AND score = 0 AND deducted_marks = 0 AND time_taken = 0";
+    Integer existingAttemptId = null;
+
+    try (PreparedStatement checkStmt = conn.prepareStatement(checkQuery)) {
+        checkStmt.setInt(1, challengeNumber);
+        checkStmt.setInt(2, actualParticipantId);
+        try (ResultSet rs = checkStmt.executeQuery()) {
+            if (rs.next()) {
+                existingAttemptId = rs.getInt("id");
+            }
+        }
+    }
+
+    // Calculate the sum of question_ids in attempted_questions for the participant
+    String sumQuestionsQuery = "SELECT COUNT(question_id) AS total_attempted_questions FROM attempted_questions WHERE participant_id = ?";
+    int totalAttemptedQuestions;
+    try (PreparedStatement sumQuestionsStmt = conn.prepareStatement(sumQuestionsQuery)) {
+        sumQuestionsStmt.setInt(1, actualParticipantId);
+        try (ResultSet rs = sumQuestionsStmt.executeQuery()) {
+            if (rs.next()) {
+                totalAttemptedQuestions = rs.getInt("total_attempted_questions");
+            } else {
+                throw new SQLException(
+                        "Failed to retrieve the total attempted questions for participant ID " + participantId);
+            }
+        }
+    }
+
+    // Retrieve the number of questions in the challenge
+    String getNumberOfQuestionsQuery = "SELECT number_of_questions FROM challenges WHERE id = ?";
+    int numberOfQuestions;
+    try (PreparedStatement getNumberOfQuestionsStmt = conn.prepareStatement(getNumberOfQuestionsQuery)) {
+        getNumberOfQuestionsStmt.setInt(1, challengeNumber);
+        try (ResultSet rs = getNumberOfQuestionsStmt.executeQuery()) {
+            if (rs.next()) {
+                numberOfQuestions = rs.getInt("number_of_questions");
+            } else {
+                throw new SQLException("Challenge ID " + challengeNumber + " does not exist in the challenges table.");
+            }
+        }
+    }
+
+    // Determine if the challenge attempt should be marked as completed
+    boolean completed = totalAttemptedQuestions == numberOfQuestions;
+
+    if (existingAttemptId != null) {
+        // Update the existing entry
+        String updateAttempt = "UPDATE challenge_attempts SET score = ?, deducted_marks = ?, time_taken = ?, completed = ?, updated_at = NOW() WHERE id = ?";
+        try (PreparedStatement updateStmt = conn.prepareStatement(updateAttempt)) {
+            updateStmt.setInt(1, scoreResult.getTotalScore());
+            updateStmt.setInt(2, scoreResult.getDeductedMarks());
+            updateStmt.setLong(3, totalTimeSpent);
+            updateStmt.setBoolean(4, completed);
+            updateStmt.setInt(5, existingAttemptId);
+            updateStmt.executeUpdate();
+        }
+    } else {
+        // Insert a new entry
+        String insertAttempt = "INSERT INTO challenge_attempts (challenge_id, participant_id, score, deducted_marks, time_taken, completed, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())";
+        try (PreparedStatement insertStmt = conn.prepareStatement(insertAttempt)) {
+            insertStmt.setInt(1, challengeNumber);
+            insertStmt.setInt(2, actualParticipantId);
+            insertStmt.setInt(3, scoreResult.getTotalScore());
+            insertStmt.setInt(4, scoreResult.getDeductedMarks());
+            insertStmt.setLong(5, totalTimeSpent);
+            insertStmt.setBoolean(6, completed);
+            insertStmt.executeUpdate();
+        }
+    }
+}
+
+private static void updateParticipant(Connection conn, int participantId, Long schoolId, int challengeNumber,
+        ScoreResult scoreResult, long totalTimeSpent) throws SQLException {
+    String updateQuery1 = "UPDATE participants SET " +
+            "challenge_id = ?, " +
+            "attempts_left = attempts_left - 1, " +
+            "total_score = total_score + ?, " +
+            "time_taken = time_taken + ? " +
+            "WHERE participant_id = ? AND challenge_id IS NULL";
+
+    String updateQuery2 = "UPDATE participants SET " +
+            "attempts_left = attempts_left - 1, " +
+            "total_score = total_score + ?, " +
+            "time_taken = time_taken + ?, " +
+            "completed = true " +
+            "WHERE participant_id = ? AND challenge_id = ? AND completed = false";
+
+    String insertQuery = "INSERT INTO participants (participant_id, school_id, challenge_id, attempts_left, total_score, time_taken) "
+            + "VALUES (?, ?, ?, ?, ?, ?)";
+
+    String checkAttemptsAndCompletedQuery = "SELECT attempts_left, completed FROM participants WHERE participant_id = ? AND challenge_id = ?";
+
+    try {
+        int attemptsLeft = 0;
+        boolean completed = false;
+
+        // Check if attempts are left and if completed is true
+        try (PreparedStatement checkStmt = conn.prepareStatement(checkAttemptsAndCompletedQuery)) {
+            checkStmt.setInt(1, participantId);
+            checkStmt.setInt(2, challengeNumber);
+            try (ResultSet rs = checkStmt.executeQuery()) {
+                if (rs.next()) {
+                    attemptsLeft = rs.getInt("attempts_left");
+                    completed = rs.getBoolean("completed");
+                }
+            }
+        }
+
+        if (attemptsLeft <= 0) {
+            // No attempts left, return an error message
+            System.out.println("Attempts done. No attempts left for participant ID " + participantId);
+            return;
+        }
+
+        if (completed) {
+            // Insert a new record if completed is true and attempts are left
+            try (PreparedStatement insertStmt = conn.prepareStatement(insertQuery)) {
+                insertStmt.setInt(1, participantId);
+                insertStmt.setLong(2, schoolId);
+                insertStmt.setInt(3, challengeNumber);
+                insertStmt.setInt(4, attemptsLeft - 1); // Decrement attempts left
+                insertStmt.setInt(5, scoreResult.getTotalScore());
+                insertStmt.setLong(6, totalTimeSpent);
+                insertStmt.executeUpdate();
+            }
+        } else {
+            // First update query: update when participant_id=? and challenge_id is null
+            try (PreparedStatement updateStmt1 = conn.prepareStatement(updateQuery1)) {
+                updateStmt1.setInt(1, challengeNumber);
+                updateStmt1.setInt(2, scoreResult.getTotalScore());
+                updateStmt1.setLong(3, totalTimeSpent);
+                updateStmt1.setInt(4, participantId);
+                int rowsUpdated1 = updateStmt1.executeUpdate();
+                if (rowsUpdated1 > 0)
+                    return;
+            }
+
+            // Second update query: update when challenge_id=? and participant_id=? but
+            // total_score=0
+            try (PreparedStatement updateStmt2 = conn.prepareStatement(updateQuery2)) {
+                updateStmt2.setInt(1, scoreResult.getTotalScore());
+                updateStmt2.setLong(2, totalTimeSpent);
+                updateStmt2.setInt(3, participantId);
+                updateStmt2.setInt(4, challengeNumber);
+                int rowsUpdated2 = updateStmt2.executeUpdate();
+                if (rowsUpdated2 > 0)
+                    return;
+            }
+        }
+    } catch (SQLException e) {
+        // Handle exceptions
+        e.printStackTrace();
+        throw e;
+    }
+}
+
+
+private static void handleSQLException(Exception e, PrintWriter writer) {
+    writer.println("An error occurred: " + e.getMessage());
+}
+
+private static int saveAttemptedChallenge(Connection conn, int participantId, int challengeNumber,
+        List<String> questions, List<String> userAnswers, long totalTimeSpent) throws SQLException {
+    String getParticipantIdQuery = "SELECT id FROM participants WHERE participant_id = ?";
+    int actualParticipantId;
+    try (PreparedStatement getParticipantIdStmt = conn.prepareStatement(getParticipantIdQuery)) {
+        getParticipantIdStmt.setInt(1, participantId);
+        ResultSet rs = getParticipantIdStmt.executeQuery();
+        if (rs.next()) {
+            actualParticipantId = rs.getInt("id");
+        } else {
+            throw new SQLException("Participant ID " + participantId + " does not exist in the participants table.");
+        }
+    }
+
+    String insertAttempt = "INSERT INTO challenge_attempts (challenge_id, participant_id, score, deducted_marks, time_taken, completed, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())";
+    try (PreparedStatement insertAttemptStmt = conn.prepareStatement(insertAttempt, Statement.RETURN_GENERATED_KEYS)) {
+        insertAttemptStmt.setInt(1, challengeNumber);
+        insertAttemptStmt.setInt(2, actualParticipantId);
+        insertAttemptStmt.setInt(3, 0);
+        insertAttemptStmt.setInt(4, 0);
+        insertAttemptStmt.setInt(5, 0);
+        insertAttemptStmt.setBoolean(6, false);
+        insertAttemptStmt.executeUpdate();
+
+        try (ResultSet generatedKeys = insertAttemptStmt.getGeneratedKeys()) {
+            if (generatedKeys.next()) {
+                int challengeAttemptId = generatedKeys.getInt(1);
+                saveAttemptedQuestions(conn, actualParticipantId, challengeAttemptId, questions, userAnswers, null);
+                return challengeAttemptId;
+            } else {
+                throw new SQLException("Failed to obtain challenge attempt ID.");
+            }
+        }
+    }
+}
+
+private static void saveAttemptedQuestions(Connection conn, int participantId, int challengeAttemptId,
+        List<String> questions, List<String> userAnswers, Object object) throws SQLException {
+
+
     // Step 2: Insert attempted questions
     String insertQuestion = "INSERT INTO attempted_questions (participant_id, challenge_attempt_id, question_id, given_answer, marks_awarded, is_repeated, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())";
     try (PreparedStatement insertQuestionStmt = conn.prepareStatement(insertQuestion)) {
         for (int i = 0; i < questions.size(); i++) {
             int questionId = getQuestionIdByText(conn, questions.get(i));
             int marksAwarded = getMarksAwarded(conn, questionId, userAnswers.get(i));
-            insertQuestionStmt.setInt(1, actualParticipantId);
+            insertQuestionStmt.setInt(1, participantId);
             insertQuestionStmt.setInt(2, challengeAttemptId);
             insertQuestionStmt.setInt(3, questionId);
             insertQuestionStmt.setString(4, userAnswers.get(i));

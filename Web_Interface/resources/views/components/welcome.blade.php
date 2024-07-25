@@ -43,10 +43,13 @@
         <!-- High Scores Card -->
         <div class="bg-gray-800 p-4 rounded-lg shadow-lg">
             <div class="text-xs text-gray-400">High Scores (Challenges 1, 2, 3)</div>
-            <div class="text-2xl font-bold">1: {{ $highScores[1] ?? 'N/A' }}, 2: {{ $highScores[2] ?? 'N/A' }}, 3:
-                {{ $highScores[3] ?? 'N/A' }}
+            <div class="text-2xl font-bold">
+                1: {{ $highScores[1] ?? 'N/A' }},
+                2: {{ $highScores[2] ?? 'N/A' }},
+                3: {{ $highScores[3] ?? 'N/A' }}
             </div>
         </div>
+
     </div>
 
     <!-- Main Content -->
@@ -58,18 +61,24 @@
         </div>
 
         <!-- Question Repetition Section -->
-        <div class="bg-gray-800 p-6 rounded-lg shadow-lg">
-            <div class="text-xl font-bold mb-4">Question Repetition</div>
-            <ul>
-                @foreach ($questionRepetition as $participant)
-                <li class="flex items-center mb-4">
-                    <div>
-
-                        <div class="text-xs text-gray-400">Repeated Questions: {{ $participant->repeated_question_count }}</div>
-                    </div>
-                </li>
-                @endforeach
-            </ul>
+        <div class="bg-gray-800 p-4 rounded shadow">
+            <h3 class="text-xl font-semibold mb-2"> Most 5 Repeated Questions and Thier Percentage</h3>
+            <table class="table-auto w-full">
+                <thead>
+                    <tr>
+                        <th class="px-4 py-2 text-white">Question Text</th>
+                        <th class="px-4 py-2 text-white">Repetition Percentage</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach ($questionRepetition as $attemptedQuestion)
+                    <tr>
+                        <td class="border px-4 py-2 text-white">{{ $attemptedQuestion->question->question_text }}</td>
+                        <td class="border px-4 py-2 text-white">{{ number_format($attemptedQuestion->repetition_percentage, 2) }}%</td>
+                    </tr>
+                    @endforeach
+                </tbody>
+            </table>
         </div>
         <!-- School Rankings Section -->
         <div class="bg-gray-800 p-6 rounded-lg shadow-lg">
@@ -98,7 +107,7 @@
             <tbody>
                 @foreach ($topParticipants as $participant)
                 <tr>
-                    <td class="py-2 px-4 border-b border-gray-700">{{ $participant->username }}</td>
+                    <td class="py-2 px-4 border-b border-gray-700">{{ $participant->user->username }}</td>
                     <td class="py-2 px-4 border-b border-gray-700">{{ $participant->school->name }}</td>
                     <td class="py-2 px-4 border-b border-gray-700">{{ $participant->total_score }}</td>
                 </tr>

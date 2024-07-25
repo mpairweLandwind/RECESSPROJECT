@@ -1,4 +1,4 @@
-java -cp .:/usr/share/java/postgresql-jdbc.jar:lib/*  CML_Interface.Mainserver alien  alien123.com
+java -cp .:lib/*  CML_Interface.Mainserver alien  alien123.com
 
 register lilian Nankunda Lilian nankundalilian@gmail.com 1995-06-15 U023 /home/landwind/RecessProject/alien.jpg lilian123.com
 javac -proc:none -cp .:lib/* CML_Interface/Mainserver.java

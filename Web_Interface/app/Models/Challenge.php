@@ -30,12 +30,16 @@ class Challenge extends Model
     {
         return $this->hasMany(Question::class);
     }
-
     public function participants()
     {
-        return $this->belongsToMany(Participant::class, 'challenge_participants')
-            ->withTimestamps();
+        return $this->hasMany(Participant::class, 'challenge_id');
     }
+
+    public function attemptedQuestions()
+    {
+        return $this->hasMany(AttemptedQuestion::class, 'challenge_id');
+    }
+
 
     public function challengeAttempts()
     {

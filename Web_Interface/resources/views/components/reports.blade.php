@@ -32,7 +32,7 @@
                             @foreach($challenges as $challenge)
                             <tr class="border-b border-gray-200 hover:bg-gray-100">
                                 <td class="py-3 px-6">{{ $participant->school->name }}</td>
-                                <td class="py-3 px-6">{{ $participant->firstname }} {{ $participant->lastname }}</td>
+                                <td class="py-3 px-6">{{ $participant->user->firstname }} {{ $participant->user->lastname }}</td>
                                 <td class="py-3 px-6">{{ $challenge->title }}</td>
                                 <td class="py-3 px-6">{{ $participant->total_score }}</td>
                                 <!-- <td class="py-3 px-6">{{ $participant->time_taken }}</td> -->

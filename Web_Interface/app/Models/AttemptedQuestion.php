@@ -16,7 +16,7 @@ class AttemptedQuestion extends Model
         'question_id',
         'given_answer',
         'marks_awarded',
-        'time_spent',  // Time taken to answer the question in seconds (rounded up)
+        'status',  // Time taken to answer the question in seconds (rounded up)
         'is_repeated',
         'created_at',
         'updated_at',
@@ -27,10 +27,14 @@ class AttemptedQuestion extends Model
     {
         return $this->belongsTo(Participant::class);
     }
-
     public function question()
     {
         return $this->belongsTo(Question::class, 'question_id');
+    }
+
+    public function challenge()
+    {
+        return $this->belongsTo(Challenge::class, 'challenge_id');
     }
     
 }

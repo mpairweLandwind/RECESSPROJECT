@@ -52,6 +52,7 @@
             <h1 class="text-2xl font-bold text-gray-800">Participant Report</h1>
         </div>
         <div class="mb-4">
+            
             <h2 class="text-xl font-semibold text-gray-700">Report for: {{ $participant->user->firstname }}
                 {{ $participant->user->lastname }}</h2>
             <p class="text-gray-600">School: {{ $participant->school->name }}</p>

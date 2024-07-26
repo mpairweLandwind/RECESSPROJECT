@@ -53,10 +53,6 @@ public class Client {
                 break;
 
             }
-            else if(response.startsWith("Challenge submitted successfully")){
-                System.out.println(response);
-                break;
-            }
 
             else if (response.startsWith("Challenge submitted successfully")) {
                 System.out.println(response);
@@ -123,7 +119,7 @@ public class Client {
                             }
                         }
                     }
-    
+
                     while (true) {
                         String line = readServerResponse();
                         if (line == null) {
@@ -174,17 +170,14 @@ public class Client {
                                    
                             break;
 
-                    
+
                         
-                        }else if (line.startsWith("Challenge submitted successfully")){
-                            System.out.println(line);
-                            break; // End of challenge submission process
+                        } else if (line.contains("Invalid command.")) {
+                            break;
                         }
                         
                         else {
-                            System.out.println(line);
-                             // Display any additional information
-                             break;
+                            System.out.println(line); // Display any additional information
                         }
                     }
     

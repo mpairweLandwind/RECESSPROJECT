@@ -534,36 +534,58 @@ public class Mainserver {
                 return;
             }
 
-    int userId = userRs.getInt("id");
 
-    // Check if participant is assigned to the challenge and retrieve attempts left
-    int attemptsLeft = getRemainingAttempts(conn, userId, challengeNumber);
+            int userId = userRs.getInt("id");
 
-    if (attemptsLeft <= 0) {
-        writer.println("No attempts left for this challenge.");
-        return;
-    }
+            // Check if participant is assigned to the challenge and retrieve attempts left
+            int attemptsLeft = getRemainingAttempts(conn, userId, challengeNumber);
 
-    // Submit the challenge attempt asynchronously
-    CountDownLatch latch = new CountDownLatch(1);
+            if (attemptsLeft <= 0) {
+                writer.println("No attempts left for this challenge.");
+                return;
+            }
 
-    executorService.submit(() -> {
-        try {
-            attemptChallenge(challengeNumber, username, writer, reader);
-        } finally {
-            latch.countDown();
+            // Check the number of attempts already made for the same challenge by the
+            // participant
+            String attemptsQuery = "SELECT COUNT(*) FROM challenge_attempts WHERE challenge_id = ? AND participant_id = ?";
+            PreparedStatement attemptsStmt = conn.prepareStatement(attemptsQuery);
+            attemptsStmt.setInt(1, challengeNumber);
+            attemptsStmt.setInt(2, userId);
+            ResultSet attemptsRs = attemptsStmt.executeQuery();
+
+            if (attemptsRs.next()) {
+                int attemptCount = attemptsRs.getInt(1);
+                if (attemptCount >= 3) {
+                    writer.println("You have already attempted this challenge 3 times. No attempts left.");
+                    return;
+                }
+            }
+
+            // Submit the challenge attempt asynchronously
+            CountDownLatch latch = new CountDownLatch(1);
+
+            if (!executorService.isShutdown()) {
+                executorService.submit(() -> {
+                    try {
+                        attemptChallenge(challengeNumber, username, writer, reader);
+                    } finally {
+                        latch.countDown();
+                    }
+                });
+            } else {
+                writer.println("Service is currently unavailable. Please try again later.");
+                latch.countDown();
+            }
+
+            try {
+                latch.await(); // Wait for the challenge attempt to complete
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                writer.println("Challenge attempt was interrupted.");
+            }
+        } catch (SQLException e) {
+            writer.println("Failed to check remaining attempts: " + e.getMessage());
         }
-    });
-
-    try {
-        latch.await(); // Wait for the challenge attempt to complete
-    } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        writer.println("Challenge attempt was interrupted.");
-    }
-} catch (SQLException e) {
-    writer.println("Failed to check remaining attempts: " + e.getMessage());
-}
 }
 
 private static void attemptChallenge(int challengeNumber, String username, PrintWriter writer,
@@ -631,7 +653,9 @@ private static void attemptChallenge(int challengeNumber, String username, Print
 }
 
 private static int getRemainingAttempts(Connection conn, int userId, int challengeNumber) throws SQLException {
-    String checkAttemptsQuery = "SELECT attempts_left FROM participants WHERE participant_id = ? AND (challenge_id = ? OR challenge_id IS NULL)";
+    String checkAttemptsQuery = "SELECT attempts_left FROM participants " +
+            "WHERE participant_id = ? AND (challenge_id = ? OR challenge_id IS NULL) " +
+            "ORDER BY updated_at DESC LIMIT 1";
     try (PreparedStatement checkStmt = conn.prepareStatement(checkAttemptsQuery)) {
         checkStmt.setInt(1, userId);
         checkStmt.setInt(2, challengeNumber);
@@ -645,6 +669,7 @@ private static int getRemainingAttempts(Connection conn, int userId, int challen
         }
     }
 }
+
 
 private static void displayChallengeDetails(PrintWriter writer, ResultSet challengeRs) throws SQLException {
     int duration = challengeRs.getInt("duration");
@@ -874,89 +899,84 @@ private static void insertChallengeAttempt(Connection conn, int challengeNumber,
         }
     }
 }
-
 private static void updateParticipant(Connection conn, int participantId, Long schoolId, int challengeNumber,
         ScoreResult scoreResult, long totalTimeSpent) throws SQLException {
     String updateQuery1 = "UPDATE participants SET " +
             "challenge_id = ?, " +
             "attempts_left = attempts_left - 1, " +
             "total_score = total_score + ?, " +
-            "time_taken = time_taken + ? " +
-            "WHERE participant_id = ? AND challenge_id IS NULL";
-
-    String updateQuery2 = "UPDATE participants SET " +
-            "attempts_left = attempts_left - 1, " +
-            "total_score = total_score + ?, " +
             "time_taken = time_taken + ?, " +
             "completed = true " +
-            "WHERE participant_id = ? AND challenge_id = ? AND completed = false";
+            "WHERE participant_id = ? AND challenge_id IS NULL";
 
-    String insertQuery = "INSERT INTO participants (participant_id, school_id, challenge_id, attempts_left, total_score, time_taken) "
-            + "VALUES (?, ?, ?, ?, ?, ?)";
+    String getLastAttemptQuery = "SELECT attempts_left FROM participants " +
+            "WHERE participant_id = ? AND challenge_id = ? AND completed = true " +
+            "ORDER BY updated_at DESC LIMIT 1";
 
-    String checkAttemptsAndCompletedQuery = "SELECT attempts_left, completed FROM participants WHERE participant_id = ? AND challenge_id = ?";
+    String insertQuery = "INSERT INTO participants (participant_id, school_id, challenge_id, attempts_left, total_score, completed, time_taken, created_at, updated_at) "
+            + "VALUES (?, ?, ?, ?, ?, ?,?, now(), now())";
+
+    boolean initialAutoCommit = conn.getAutoCommit(); // Save the current auto-commit state
 
     try {
-        int attemptsLeft = 0;
-        boolean completed = false;
+        if (initialAutoCommit) {
+            conn.setAutoCommit(false); // Start transaction
+        }
 
-        // Check if attempts are left and if completed is true
-        try (PreparedStatement checkStmt = conn.prepareStatement(checkAttemptsAndCompletedQuery)) {
-            checkStmt.setInt(1, participantId);
-            checkStmt.setInt(2, challengeNumber);
-            try (ResultSet rs = checkStmt.executeQuery()) {
-                if (rs.next()) {
-                    attemptsLeft = rs.getInt("attempts_left");
-                    completed = rs.getBoolean("completed");
-                }
+        // First update query: update when participant_id=? and challenge_id is null
+        try (PreparedStatement updateStmt1 = conn.prepareStatement(updateQuery1)) {
+            updateStmt1.setInt(1, challengeNumber);
+            updateStmt1.setInt(2, scoreResult.getTotalScore());
+            updateStmt1.setLong(3, totalTimeSpent);
+            updateStmt1.setInt(4, participantId);
+            int rowsUpdated1 = updateStmt1.executeUpdate();
+            if (rowsUpdated1 > 0) {
+                conn.commit(); // Commit transaction
+                return; // Exit method after successful update
             }
         }
 
-        if (attemptsLeft <= 0) {
-            // No attempts left, return an error message
-            System.out.println("Attempts done. No attempts left for participant ID " + participantId);
-            return;
+        // Get the most recent attempt to determine the number of attempts left
+        int attemptsLeft;
+        try (PreparedStatement getLastAttemptStmt = conn.prepareStatement(getLastAttemptQuery)) {
+            getLastAttemptStmt.setInt(1, participantId);
+            getLastAttemptStmt.setInt(2, challengeNumber);
+            ResultSet rs = getLastAttemptStmt.executeQuery();
+            if (rs.next()) {
+                attemptsLeft = rs.getInt("attempts_left") - 1; // Decrement attempts left by 1
+            } else {
+                attemptsLeft = 3; // Default value if no previous attempts found
+            }
         }
 
-        if (completed) {
-            // Insert a new record if completed is true and attempts are left
-            try (PreparedStatement insertStmt = conn.prepareStatement(insertQuery)) {
-                insertStmt.setInt(1, participantId);
-                insertStmt.setLong(2, schoolId);
-                insertStmt.setInt(3, challengeNumber);
-                insertStmt.setInt(4, attemptsLeft - 1); // Decrement attempts left
-                insertStmt.setInt(5, scoreResult.getTotalScore());
-                insertStmt.setLong(6, totalTimeSpent);
-                insertStmt.executeUpdate();
-            }
-        } else {
-            // First update query: update when participant_id=? and challenge_id is null
-            try (PreparedStatement updateStmt1 = conn.prepareStatement(updateQuery1)) {
-                updateStmt1.setInt(1, challengeNumber);
-                updateStmt1.setInt(2, scoreResult.getTotalScore());
-                updateStmt1.setLong(3, totalTimeSpent);
-                updateStmt1.setInt(4, participantId);
-                int rowsUpdated1 = updateStmt1.executeUpdate();
-                if (rowsUpdated1 > 0)
-                    return;
-            }
-
-            // Second update query: update when challenge_id=? and participant_id=? but
-            // total_score=0
-            try (PreparedStatement updateStmt2 = conn.prepareStatement(updateQuery2)) {
-                updateStmt2.setInt(1, scoreResult.getTotalScore());
-                updateStmt2.setLong(2, totalTimeSpent);
-                updateStmt2.setInt(3, participantId);
-                updateStmt2.setInt(4, challengeNumber);
-                int rowsUpdated2 = updateStmt2.executeUpdate();
-                if (rowsUpdated2 > 0)
-                    return;
-            }
+        // Insert a new record if no rows were updated
+        try (PreparedStatement insertStmt = conn.prepareStatement(insertQuery)) {
+            insertStmt.setInt(1, participantId);
+            insertStmt.setLong(2, schoolId);
+            insertStmt.setInt(3, challengeNumber);
+            insertStmt.setInt(4, attemptsLeft); // Use the decremented attempts left
+            insertStmt.setInt(5, scoreResult.getTotalScore());
+            insertStmt.setBoolean(6, true); // Set completed to false for new records
+            insertStmt.setLong(7, totalTimeSpent);
+            insertStmt.executeUpdate();
+            conn.commit(); // Commit transaction
         }
     } catch (SQLException e) {
-        // Handle exceptions
         e.printStackTrace();
-        throw e;
+        try {
+            conn.rollback(); // Rollback transaction on error
+        } catch (SQLException rollbackEx) {
+            rollbackEx.printStackTrace();
+        }
+        throw e; // Re-throw the exception to signal failure
+    } finally {
+        try {
+            if (conn != null && initialAutoCommit) {
+                conn.setAutoCommit(true); // Reset auto-commit to its initial state
+            }
+        } catch (SQLException ex) {
+            ex.printStackTrace();
+        }
     }
 }
 

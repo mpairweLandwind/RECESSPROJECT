@@ -17,9 +17,9 @@ import java.util.concurrent.*;
 public class Mainserver {
 
     private static final ExecutorService executorService = Executors.newCachedThreadPool();
-    private static String dbUsername = "alien";
-    private static String dbPassword = "alien123.com";
-    private static String dbUrl = "jdbc:postgresql://localhost:5432/competition_db";
+    private static String dbUsername = "postgres";
+    private static String dbPassword = "123456";
+    private static String dbUrl = "jdbc:postgresql://localhost:5432/postgres";
     private static Map<String, Boolean> loggedInClients = new HashMap<>();
     private static String smtpHost = "smtp.gmail.com"; // Replace with your SMTP host
     private static String smtpUsername = "mpairwelauben375@gmail.com";
@@ -171,6 +171,8 @@ public class Mainserver {
                     "Usage: register <username> <firstname> <lastname> <email> <dob> <school_reg_no> <image_path> <password>");
             return;
         }
+
+// "C:\Users\Muhangi\Downloads\demo.png"
 
         String username = parts[1];
         String firstname = parts[2];
@@ -975,148 +977,3 @@ private static Long getSchoolIdByUsername(String username) throws SQLException {
 
 }
 
-
-// private static void handleUploadQuestionsCommand(String[] parts, PrintWriter
-// writer, String username) {
-// if (parts.length != 2) {
-// writer.println("Usage: uploadQuestions <questions_file_path>");
-// return;
-// }
-
-// try {
-// String role = getUsernameAndRole(username);
-// if (!"admin".equalsIgnoreCase(role)) {
-// writer.println("You do not have permission to upload questions.");
-// return;
-// }
-// } catch (SQLException e) {
-// writer.println("Failed to check user role: " + e.getMessage());
-// return;
-// }
-
-// String filePath = parts[1];
-// File file = new File(filePath);
-
-// if (!file.exists() || file.isDirectory()) {
-// writer.println("Invalid file path.");
-// return;
-// }
-
-// try (FileInputStream fis = new FileInputStream(file);
-// Workbook workbook = new XSSFWorkbook(fis);
-// Connection conn = connectToDatabase()) {
-// conn.setAutoCommit(false); // Start transaction
-
-// Sheet sheet = workbook.getSheetAt(0);
-// int count = 0;
-// int adminId = getUserId(username);
-
-// if (adminId == -1) {
-// writer.println("Failed to retrieve administrator ID.");
-// return;
-// }
-
-// for (Row row : sheet) {
-// if (row.getRowNum() == 0) {
-// // Skip header row
-// continue;
-// }
-
-// Cell IdCell = row.getCell(0);
-// Cell questionTextCell = row.getCell(1);
-// Cell marksCell = row.getCell(2);
-
-// if (IdCell == null || questionTextCell == null || marksCell == null) {
-// writer.println("Invalid question format in row " + (row.getRowNum() + 1));
-// continue;
-// }
-
-// int Id = (int) IdCell.getNumericCellValue();
-// String questionText = questionTextCell.getStringCellValue();
-// int marks = (int) marksCell.getNumericCellValue();
-
-// String sql = "INSERT INTO questions (id,question_text, marks,
-// administrator_id) VALUES (?, ?, ?, ?)";
-// try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-// stmt.setInt(1, Id);
-// stmt.setString(2, questionText);
-// stmt.setInt(3, marks);
-// stmt.setInt(4, adminId);
-// stmt.executeUpdate();
-// count++;
-// }
-// }
-
-// conn.commit(); // Commit transaction
-// writer.println("Questions uploaded successfully! Total: " + count);
-// } catch (Exception e) {
-// writer.println("Failed to upload questions: " + e.getMessage());
-// }
-// }
-
-// private static void handleUploadAnswersCommand(String[] parts, PrintWriter
-// writer) {
-// if (parts.length != 2) {
-// writer.println("Usage: uploadAnswers <answers_file_path>");
-// return;
-// }
-
-// String filePath = parts[1];
-
-// try (InputStream fileStream = new FileInputStream(filePath);
-// Workbook workbook = new XSSFWorkbook(fileStream);
-// Connection conn = connectToDatabase()) {
-
-// Sheet sheet = workbook.getSheetAt(0);
-// Iterator<Row> rowIterator = sheet.iterator();
-
-// while (rowIterator.hasNext()) {
-// Row row = rowIterator.next();
-// if (row.getRowNum() == 0) {
-// // Skip the header row
-// continue;
-// }
-
-// Cell questionIdCell = row.getCell(0);
-// Cell answerTextCell = row.getCell(1);
-// Cell isCorrectCell = row.getCell(2);
-
-// if (questionIdCell == null || answerTextCell == null || isCorrectCell ==
-// null) {
-// writer.println("Invalid answer format in file.");
-// continue;
-// }
-
-// long questionId = (long) questionIdCell.getNumericCellValue();
-// String answerText = answerTextCell.getStringCellValue();
-// boolean isCorrect = isCorrectCell.getBooleanCellValue();
-
-// String sql = "INSERT INTO answers (question_id, answer_text, is_correct,
-// created_at, updated_at) VALUES (?, ?, ?, NOW(), NOW())";
-// PreparedStatement stmt = conn.prepareStatement(sql);
-// stmt.setLong(1, questionId);
-// stmt.setString(2, answerText);
-// stmt.setBoolean(3, isCorrect);
-// stmt.executeUpdate();
-// }
-
-// writer.println("Answers uploaded successfully!");
-// } catch (IOException | SQLException e) {
-// writer.println("Failed to upload answers: " + e.getMessage());
-// }
-// }
-
-// private static int getUserId(String username) throws SQLException {
-// int userId = -1;
-// String sql = "SELECT id FROM users WHERE username = ?";
-// try (Connection conn = connectToDatabase();
-// PreparedStatement stmt = conn.prepareStatement(sql)) {
-// stmt.setString(1, username);
-// try (ResultSet rs = stmt.executeQuery()) {
-// if (rs.next()) {
-// userId = rs.getInt("id");
-// }
-// }
-// }
-// return userId;
-// }

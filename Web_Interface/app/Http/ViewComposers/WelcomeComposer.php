@@ -85,10 +85,10 @@ class WelcomeComposer
                     ->orderBy('total_score', 'desc');
             }
         ])->take(5)->get();
-
-        $incompleteParticipants = Participant::whereHas('challenges', function ($query) {
-            $query->where('challenge_participants.status', 'incomplete');
+        $incompleteParticipants = Participant::whereHas('attemptedQuestions', function ($query) {
+            $query->where('status', 'incomplete');
         })->get();
+        
 
         $monthlyRegistrationData = $this->getMonthlyRegistrationData();
 

@@ -5,36 +5,30 @@ namespace App\Http\Controllers;
 use App\Models\Participant;
 use App\Models\School;
 use App\Models\Challenge;
-use App\Services\ReportService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
+use App\Mail\ReportMail;
+use Barryvdh\DomPDF\Facade as PDF; // Import PDF library
 use iio\libmergepdf\Merger; // Import Merger class
 
 class ReportController extends Controller
 {
-    protected $reportService;
-
-    public function __construct(ReportService $reportService)
-    {
-        $this->reportService = $reportService;
-    }
-
     public function sendParticipantPdf($participant_id)
     {
         $participant = Participant::with('challenges')->findOrFail($participant_id);
 
         $pdfs = [];
         foreach ($participant->challenges as $challenge) {
-            $pdfs[] = $this->reportService->generateParticipantReport($participant, $challenge);
+            $pdfs[] = $this->generateParticipantReport($participant, $challenge);
         }
 
         $mergedPdf = $this->mergePdfs($pdfs);
 
-        Mail::send([], [], function ($message) use ($participant, $mergedPdf) {
-            $message->to($participant->user->email)
-                ->subject('Your Challenge Reports')
-                ->attachData($mergedPdf, 'participant_reports.pdf');
-        });
+        $data = [
+            'subject' => 'Your Challenge Reports',
+        ];
+
+        Mail::to($participant->user->email)->send(new ReportMail($data, $mergedPdf, 'participant_reports.pdf'));
 
         return redirect()->back()->with('success', 'Participant PDFs sent successfully');
     }
@@ -45,7 +39,7 @@ class ReportController extends Controller
 
         $pdfs = [];
         foreach ($participant->challenges as $challenge) {
-            $pdfs[] = $this->reportService->generateParticipantReport($participant, $challenge);
+            $pdfs[] = $this->generateParticipantReport($participant, $challenge);
         }
 
         $mergedPdf = $this->mergePdfs($pdfs);
@@ -62,17 +56,17 @@ class ReportController extends Controller
         $pdfs = [];
         foreach ($school->participants as $participant) {
             foreach ($participant->challenges as $challenge) {
-                $pdfs[] = $this->reportService->generateSchoolReport($school, $challenge);
+                $pdfs[] = $this->generateSchoolReport($school, $challenge);
             }
         }
 
         $mergedPdf = $this->mergePdfs($pdfs);
 
-        Mail::send([], [], function ($message) use ($school, $mergedPdf) {
-            $message->to($school->email)
-                ->subject('School Challenge Reports')
-                ->attachData($mergedPdf, 'school_reports.pdf');
-        });
+        $data = [
+            'subject' => 'School Challenge Reports',
+        ];
+
+        Mail::to($school->email)->send(new ReportMail($data, $mergedPdf, 'school_reports.pdf'));
 
         return redirect()->back()->with('success', 'School PDFs sent successfully');
     }
@@ -84,7 +78,7 @@ class ReportController extends Controller
         $pdfs = [];
         foreach ($school->participants as $participant) {
             foreach ($participant->challenges as $challenge) {
-                $pdfs[] = $this->reportService->generateSchoolReport($school, $challenge);
+                $pdfs[] = $this->generateSchoolReport($school, $challenge);
             }
         }
 
@@ -104,5 +98,33 @@ class ReportController extends Controller
         }
 
         return $merger->merge();
+    }
+
+    /**
+     * Generate the participant report PDF.
+     */
+    private function generateParticipantReport($participant, $challenge)
+    {
+        $data = [
+            'participant' => $participant,
+            'challenge' => $challenge,
+        ];
+
+        $pdf = PDF::loadView('reports.participant', $data);
+        return $pdf->output();
+    }
+
+    /**
+     * Generate the school report PDF.
+     */
+    private function generateSchoolReport($school, $challenge)
+    {
+        $data = [
+            'school' => $school,
+            'challenge' => $challenge,
+        ];
+
+        $pdf = PDF::loadView('reports.school', $data);
+        return $pdf->output();
     }
 }

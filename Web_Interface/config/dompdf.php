@@ -57,10 +57,6 @@ return array(
          */
         "font_cache" => storage_path('fonts'),
 
-        'font_dir' => storage_path('fonts/'),
-        'font_cache' => storage_path('fonts/'),
-
-
         /**
          * The location of a temporary directory.
          *

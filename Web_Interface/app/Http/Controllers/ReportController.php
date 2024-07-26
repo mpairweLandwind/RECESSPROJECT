@@ -8,24 +8,26 @@ use App\Models\Challenge;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\ReportMail;
-use Barryvdh\DomPDF\Facade as PDF; // Import PDF library
+use  PDF; // Import PDF library
 use iio\libmergepdf\Merger; // Import Merger class
 
 class ReportController extends Controller
 {
     public function sendParticipantPdf($participant_id)
     {
-        $participant = Participant::with('challenges')->findOrFail($participant_id);
+        $participant = Participant::with('challenges', 'user', 'school')->findOrFail($participant_id);
 
         $pdfs = [];
-        foreach ($participant->challenges as $challenge) {
-            $pdfs[] = $this->generateParticipantReport($participant, $challenge);
+        foreach ($participant->user as $user) {
+            $pdfs[] = $this->generateParticipantReport($participant, $user);
         }
 
         $mergedPdf = $this->mergePdfs($pdfs);
 
         $data = [
             'subject' => 'Your Challenge Reports',
+            'participant' => $participant,
+            'challenges' => $participant->user,
         ];
 
         Mail::to($participant->user->email)->send(new ReportMail($data, $mergedPdf, 'participant_reports.pdf'));
@@ -35,11 +37,11 @@ class ReportController extends Controller
 
     public function generateParticipantPdf($participant_id)
     {
-        $participant = Participant::with('challenges')->findOrFail($participant_id);
+        $participant = Participant::with('challenges', 'user', 'school')->findOrFail($participant_id);
 
         $pdfs = [];
-        foreach ($participant->challenges as $challenge) {
-            $pdfs[] = $this->generateParticipantReport($participant, $challenge);
+        foreach ($participant->user as $user) {
+            $pdfs[] = $this->generateParticipantReport($participant, $user);
         }
 
         $mergedPdf = $this->mergePdfs($pdfs);
@@ -51,11 +53,11 @@ class ReportController extends Controller
 
     public function sendSchoolPdf($school_id)
     {
-        $school = School::with('participants.challenges')->findOrFail($school_id);
+        $school = School::with('participants.user')->findOrFail($school_id);
 
         $pdfs = [];
         foreach ($school->participants as $participant) {
-            foreach ($participant->challenges as $challenge) {
+            foreach ($participant->challenge as $challenge) {
                 $pdfs[] = $this->generateSchoolReport($school, $challenge);
             }
         }
@@ -64,6 +66,8 @@ class ReportController extends Controller
 
         $data = [
             'subject' => 'School Challenge Reports',
+            'school' => $school,
+            'challenges' => $school->participants->flatMap->challenges,
         ];
 
         Mail::to($school->email)->send(new ReportMail($data, $mergedPdf, 'school_reports.pdf'));

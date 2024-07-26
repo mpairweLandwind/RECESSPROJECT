@@ -795,6 +795,7 @@ private static void submitChallenge(int challengeNumber, String username, List<S
         updateParticipant(conn, participantId, schoolId, challengeNumber, scoreResult, totalTimeSpent);
 
         insertChallengeAttempt(conn, challengeNumber, participantId, scoreResult, totalTimeSpent);
+        insertChallengeParticipant(conn, challengeNumber, participantId);
 
         conn.commit();
 
@@ -810,6 +811,28 @@ private static void submitChallenge(int challengeNumber, String username, List<S
         }
     } catch (SQLException | InterruptedException e) {
         handleSQLException(e, writer);
+    }
+}
+
+private static void insertChallengeParticipant(Connection conn, int challengeId, int participantId)
+        throws SQLException {
+    String getParticipantIdQuery = "SELECT id FROM participants WHERE participant_id = ?";
+    int actualParticipantId;
+    try (PreparedStatement getParticipantIdStmt = conn.prepareStatement(getParticipantIdQuery)) {
+        getParticipantIdStmt.setInt(1, participantId);
+        ResultSet rs = getParticipantIdStmt.executeQuery();
+        if (rs.next()) {
+            actualParticipantId = rs.getInt("id");
+        } else {
+            throw new SQLException("Participant ID " + participantId + " does not exist in the participants table.");
+        }
+    }
+
+    String sql = "INSERT INTO challenge_participants (challenge_id, participant_id,created_at,updated_at) VALUES (?, ?,now(),now())";
+    try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+        pstmt.setInt(1, challengeId);
+        pstmt.setInt(2, actualParticipantId);
+        pstmt.executeUpdate();
     }
 }
 

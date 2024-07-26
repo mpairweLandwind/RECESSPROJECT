@@ -26,11 +26,10 @@ class Participant extends Model
     {
         return $this->belongsTo(School::class);
     }
-    public function challenge()
-    {
-        return $this->belongsTo(Challenge::class, 'challenge_id');
+    public function challenges() {
+        return $this->belongsToMany(Challenge::class, 'challenge_participants');
     }
-
+    
     public function attemptedQuestions()
     {
         return $this->hasMany(AttemptedQuestion::class);

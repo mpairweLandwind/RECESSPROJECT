@@ -11,12 +11,13 @@ return new class extends Migration {
     public function up(): void
     {
         Schema::create('challenge_participants', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('challenge_id')->constrained('challenges')->onDelete('cascade');
-            $table->foreignId('participant_id')->constrained('participants')->onDelete('cascade');
-            $table->string('status')->default('incomplete');
+            $table->unsignedBigInteger('challenge_id');
+            $table->unsignedBigInteger('participant_id');
+            $table->foreign('challenge_id')->references('id')->on('challenges')->onDelete('cascade');
+            $table->foreign('participant_id')->references('id')->on('participants')->onDelete('cascade');
             $table->timestamps();
         });
+        
     }
 
     /**

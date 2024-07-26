@@ -12,6 +12,16 @@ javac  CML_Interface/Client.java
 
 register brian brian yuyen brianyuyen@gmail.com 1996-06-15 U023 /home/landwind/RecessProject/alien.jpg brian123.com
 
+//accepted emails
+register brian brian yuyen brianyuyen@gmail.com 1996-06-15 U027 /home/landwind/RecessProject/alien.jpg brian123.com
+register eliod eliod Muhangi eliodamutiba@gmail.com 2002-06-15 U024 /home/landwind/RecessProject/alien.jpg brian123.com
+register tusiime tusiime emmanuel emmanueltusiime02@gmail.com 2002-01-01 U025 home/landwind/RecessProject/alien.jpg brian123.com
+register joseph tumu joseph lovelyemer016@gmail.com 2000-01-12 U026 home/landwind/RecessProject/alien.jpg brian123.com
+
+//denied access
+register kemigisha kemigisha salarah kemigisahsalar@gmail.com 2002-01-01 U025 home/landwind/RecessProject/alien.jpg brian123.com
+register Namatovu namatovu aminah namatovu@gmail.com 2000-01-12 U026 home/landwind/RecessProject/alien.jpg brian123.com
+
 import javax.mail.PasswordAuthentication;
 
  start_date      |      end_date       |    

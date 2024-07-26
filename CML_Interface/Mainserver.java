@@ -117,9 +117,17 @@ public class Mainserver {
         }
     }
 
-    private static Connection connectToDatabase() throws SQLException {
-        return DriverManager.getConnection(dbUrl, dbUsername, dbPassword);
+    private static Connection connectToDatabase() {
+        try {
+            Connection connection = DriverManager.getConnection(dbUrl, dbUsername, dbPassword);
+            System.out.println("Connected to the PostgreSQL database successfully!");
+            return connection;
+        } catch (SQLException e) {
+            System.err.println("Connection to the database failed: " + e.getMessage());
+            return null;
+        }
     }
+    
 
     private static String handleLoginCommand(String[] parts, PrintWriter writer) {
         if (parts.length != 3) {
@@ -166,7 +174,7 @@ public class Mainserver {
     }
 
     private static void handleRegisterCommand(String[] parts, PrintWriter writer) {
-        if (parts.length != 9) {
+        if (parts.length != 3) {
             writer.println(
                     "Usage: register <username> <firstname> <lastname> <email> <dob> <school_reg_no> <image_path> <password>");
             return;
@@ -940,7 +948,7 @@ private static void handleSQLException(Exception e, PrintWriter writer) {
         }
     }
 
-private static Long getSchoolIdByUsername(String username) throws SQLException {
+    private static Long getSchoolIdByUsername(String username) throws SQLException {
     Long schoolId = null;
     String sql = "SELECT s.id AS school_id " +
             "FROM users u " +
@@ -957,8 +965,6 @@ private static Long getSchoolIdByUsername(String username) throws SQLException {
         }
         return schoolId;
     }
-
-
     // Helper method to get participant ID by username
     private static int getParticipantIdByUsername(String username) throws SQLException {
         try (Connection conn = connectToDatabase()) {

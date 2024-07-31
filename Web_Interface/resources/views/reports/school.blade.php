@@ -1,128 +1,103 @@
 <!DOCTYPE html>
-<html lang="en">
-
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>School Report</title>
-    <link href="{{ asset('css/app.css') }}" rel="stylesheet">
-    <!-- Fonts -->
-    <link rel="preconnect" href="https://fonts.bunny.net">
-    <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
-    <!-- Scripts -->
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
-
-    <!-- Styles -->
-    @livewireStyles
     <style>
+        /* Add some basic styling */
         body {
-            font-family: 'Nunito', sans-serif;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
         }
-
+        .header, .content {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
         .header {
+            background: #f5f5f5;
             text-align: center;
+        }
+        .content {
+            background: #ffffff;
+            padding: 20px;
+            border: 1px solid #ddd;
             margin-bottom: 20px;
         }
-
-        .header img {
-            width: 100px;
-            height: auto;
+        .content h2, .content h3 {
+            margin: 0 0 10px;
         }
-
-        .header h1 {
-            font-size: 2rem;
-            font-weight: bold;
-        }
-
-        .content {
-            margin: 20px;
-        }
-
         .content p {
-            margin-bottom: 10px;
+            margin: 0 0 10px;
         }
-
-        .table-container {
-            margin-top: 20px;
-            border-collapse: collapse;
+        .participants table {
             width: 100%;
+            border-collapse: collapse;
         }
-
-        .table-container th,
-        .table-container td {
+        .participants th, .participants td {
             border: 1px solid #ddd;
             padding: 8px;
-        }
-
-        .table-container th {
-            background-color: #f2f2f2;
             text-align: left;
+        }
+        .participants th {
+            background: #f5f5f5;
+        }
+        .participants tr:nth-child(even) {
+            background: #f9f9f9;
         }
     </style>
 </head>
-
 <body>
     <div class="header">
-        <div class="flex justify-center lg:col-start-2">
-            <img src="{{ Vite::asset('resources/images/logo.png') }}" class="img-fluid rounded-circle" alt="Logo"
-                style="width: 120px; height: 120px; border-radius: 50%;">
-        </div>
+        <img src="{{ Vite::asset('resources/images/logo.png') }}" alt="Logo" style="width: 120px; height: 120px; border-radius: 50%;">
         <h1>Mathematics Challenge Report</h1>
     </div>
-    <div class="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-lg">
-        <div class="flex items-center justify-between mb-6">
-            <img src="{{ asset('images/logo.png') }}" alt="Logo" class="h-16">
-            <h1 class="text-2xl font-bold text-gray-800">School Report</h1>
-        </div>
-        <div class="mb-4">
-            <h2 class="text-xl font-semibold text-gray-700">Report for: {{ $school->name }}</h2>
-            <p class="text-gray-600">District: {{ $school->district }}</p>
-            <p class="text-gray-600">Representative: {{ $school->representative->name }}</p>
-        </div>
-        <div class="mb-4">
-            <h3 class="text-lg font-semibold text-gray-700">Challenge: {{ $challenge->title }}</h3>
-            <p class="text-gray-600">Description: {{ $challenge->description }}</p>
-            <p class="text-gray-600">Duration: {{ $challenge->duration }} minutes</p>
-            <p class="text-gray-600">Number of Questions: {{ $challenge->number_of_questions }}</p>
-        </div>
-        <div>
-            <h3 class="text-lg font-semibold text-gray-700">Participants</h3>
-            <table class="min-w-full bg-white border border-gray-300">
+    <div class="content">
+        <h2>School Report</h2>
+        <p><strong>School:</strong> {{ $school->name }}</p>
+        <p><strong>District:</strong> {{ $school->district }}</p>
+        <p><strong>Representative:</strong> {{ $school->representative_name }}</p>
+        <h3>Challenges</h3>
+        @foreach ($school->participants as $participant)
+            <h4>Participant: {{ $participant->user->firstname }} {{ $participant->user->lastname }}</h4>
+            @foreach ($participant->challenges as $challenge)
+                <div class="challenge">
+                    <p><strong>Challenge Title:</strong> {{ $challenge->title }}</p>
+                    <p><strong>Description:</strong> {{ $challenge->description }}</p>
+                    <p><strong>Duration:</strong> {{ $challenge->duration }} minutes</p>
+                    <p><strong>Number of Questions:</strong> {{ $challenge->number_of_questions }}</p>
+                </div>
+            @endforeach
+        @endforeach
+        <h3>Participants</h3>
+        <div class="participants">
+            <table>
                 <thead>
                     <tr>
-                        <th class="py-2 px-4 border-b">Name</th>
-                        <th class="py-2 px-4 border-b">Total Score</th>
-                        <th class="py-2 px-4 border-b">Time Taken</th>
-                        <th class="py-2 px-4 border-b">Math Score</th>
-                        <th class="py-2 px-4 border-b">Math Time Taken</th>
-                        <th class="py-2 px-4 border-b">Completed</th>
-                        <th class="py-2 px-4 border-b">Attempts Left</th>
+                        <th>Name</th>
+                        <th>Total Score</th>
+                        <th>Time Taken</th>
+                        <th>Math Score</th>
+                        <th>Math Time Taken</th>
+                        <th>Completed</th>
+                        <th>Attempts Left</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach($school->participants as $participant)
-                        <tr class="bg-gray-100 even:bg-white">
-                            <td class="py-2 px-4 border-b">{{ $participant->user->firstname }}
-                                {{ $participant->user->lastname }}
-                            </td>
-                            <td class="py-2 px-4 border-b">{{ $participant->total_score }}</td>
-                            <td class="py-2 px-4 border-b">{{ $participant->time_taken }}</td>
-                            <td class="py-2 px-4 border-b">{{ $participant->math_score }}</td>
-                            <td class="py-2 px-4 border-b">{{ $participant->math_time_taken }}</td>
-                            <td class="py-2 px-4 border-b">{{ $participant->completed ? 'Yes' : 'No' }}</td>
-                            <td class="py-2 px-4 border-b">{{ $participant->attempts_left }}</td>
+                    @foreach ($school->participants as $participant)
+                        <tr>
+                            <td>{{ $participant->user->firstname }} {{ $participant->user->lastname }}</td>
+                            <td>{{ $participant->total_score }}</td>
+                            <td>{{ $participant->time_taken }}</td>
+                            <td>{{ $participant->math_score }}</td>
+                            <td>{{ $participant->math_time_taken }}</td>
+                            <td>{{ $participant->completed ? 'Yes' : 'No' }}</td>
+                            <td>{{ $participant->attempts_left }}</td>
                         </tr>
                     @endforeach
                 </tbody>
             </table>
         </div>
     </div>
-
-    @stack('modals')
-
-    @livewireScripts
 </body>
-
 </html>

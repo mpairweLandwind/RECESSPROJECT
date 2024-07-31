@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class School extends Model
 {
@@ -18,9 +19,9 @@ class School extends Model
         'representative_name',
         'validated',
     ];
-    public function participants()
+    public function participants():HasMany
     {
-        return $this->hasMany(Participant::class, 'school_id');
+        return $this->hasMany(Participant::class);
     }
        
     public function representative()

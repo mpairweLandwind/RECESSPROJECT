@@ -62,7 +62,7 @@ return array(
          *
          * The directory specified must be writeable by the webserver process.
          * The temporary directory is required to download remote images and when
-         * using the PDFLib back end.
+         * using the PFDLib back end.
          */
         "temp_dir" => sys_get_temp_dir(),
 

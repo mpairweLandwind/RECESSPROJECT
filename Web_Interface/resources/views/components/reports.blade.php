@@ -23,7 +23,7 @@
                                 <th class="py-3 px-6 text-left">Participant Name</th>
                                 <th class="py-3 px-6 text-left">Challenge</th>
                                 <th class="py-3 px-6 text-left">Total Score</th>
-                                <!-- <th class="py-3 px-6 text-left">Time Taken</th> -->
+                                <th class="py-3 px-6 text-left">Time Taken</th>
                                 <th class="py-3 px-6 text-left">Actions</th>
                             </tr>
                         </thead>
@@ -35,14 +35,11 @@
                                 <td class="py-3 px-6">{{ $participant->user->firstname }} {{ $participant->user->lastname }}</td>
                                 <td class="py-3 px-6">{{ $challenge->title }}</td>
                                 <td class="py-3 px-6">{{ $participant->total_score }}</td>
-                                <!-- <td class="py-3 px-6">{{ $participant->time_taken }}</td> -->
+                                <td class="py-3 px-6">{{ $participant->time_taken }}</td>
                                 <td class="py-3 px-2">
                                     <a href="{{ route('sendemail.participant.pdf', ['participant_id' => $participant->id, 'challenge_id' => $challenge->id]) }}" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mr-2">
                                         <i class="fa-solid fa-envelope-circle-check"></i> Send PDF via Email
-                                    </a>
-                                    <a href="{{ route('generateprint.participant.pdf', ['participant_id' => $participant->id, 'challenge_id' => $challenge->id]) }}" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">
-                                        <i class="fa-solid fa-print fa-lg"></i> Download To Print
-                                    </a>
+                                    </a>                                   
                                 </td>
                             </tr>
                             @endforeach
@@ -73,9 +70,7 @@
                                     <a href="{{ route('sendemail.school.pdf', ['school_id' => $school->id, 'challenge_id' => $challenge->id]) }}" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mr-2">
                                         <i class="fa-solid fa-envelope-circle-check"></i> Send PDF via Email
                                     </a>
-                                    <a href="{{ route('generateprint.school.pdf', ['school_id' => $school->id, 'challenge_id' => $challenge->id]) }}" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">
-                                        <i class="fa-solid fa-print fa-lg"></i> Download To Print
-                                    </a>
+                                    
                                 </td>
                             </tr>
                             @endforeach

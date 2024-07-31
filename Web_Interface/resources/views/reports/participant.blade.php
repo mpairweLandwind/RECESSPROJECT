@@ -52,13 +52,11 @@
             <h1 class="text-2xl font-bold text-gray-800">Participant Report</h1>
         </div>
         <div class="mb-4">
-
+            
             <h2 class="text-xl font-semibold text-gray-700">Report for: {{ $participant->user->firstname }}
                 {{ $participant->user->lastname }}</h2>
             <p class="text-gray-600">School: {{ $participant->school->name }}</p>
-            @foreach ($participant->challenges as $challenge)
-        <p class="text-gray-600">Challenge: {{ $challenge->title }}</p>
-    @endforeach
+       
         </div>
         <div class="mb-4">
             <h3 class="text-lg font-semibold text-gray-700">Performance</h3>
@@ -67,8 +65,8 @@
         </div>
         <div class="mb-4">
             <h3 class="text-lg font-semibold text-gray-700">Mathematics Challenge</h3>
-            <p class="text-gray-600">Score: {{ $participant->total_score }}</p>
-            <p class="text-gray-600">Time Taken: {{ $participant->time_taken }}</p>
+            <p class="text-gray-600">Score: {{ $participant->math_score }}</p>
+            <p class="text-gray-600">Time Taken: {{ $participant->math_time_taken }}</p>
         </div>
         <div>
             <h3 class="text-lg font-semibold text-gray-700">Other Details</h3>

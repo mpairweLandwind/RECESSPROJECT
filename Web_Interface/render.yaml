@@ -1,0 +1,41 @@
+# render.yaml
+
+databases:
+  - name: friecca-myapp # This is the name of your database service on Render.
+    plan: free # Specifies the plan for the database, which is the free tier.
+    databaseName: myapp_3nqr # The name you want to give your database.
+    user: alien # The username for the database.
+
+services:
+  - type: web # Specifies that this is a web service.
+    plan: free # The service plan, which is the free tier.
+    name: friecca-pharmacy # The name of your web service on Render.
+    runtime: docker # Specifies that this service uses Docker.
+    envVars: # Environment variables for your service.
+      # Database
+      - key: DATABASE_URL
+        value: postgres://alien:vEhT1EAmHSf9YwprSH69tgjkw6J3Ssqs@dpg-cmfs4o0cmk4c739e5l30-a/myapp_3nqr # This is the custom database URL you've provided.
+      - key: DB_CONNECTION
+        value: pgsql # Specifies the type of database (PostgreSQL).
+      - key: DB_DATABASE
+        value: myapp_3nqr # The name of the database to connect to.
+      - key: DB_USERNAME
+        value: alien # The username for the database connection.
+      # Laravel
+      - key: APP_KEY
+        sync: false # Placeholder for a value to be added in the dashboard.
+      - key: APP_ENV
+        value: production # Specifies the Laravel environment as production.
+      - key: APP_DEBUG
+        value: false # Turns off debug mode for Laravel.
+      - key: LOG_CHANNEL
+        value: stderr # Specifies the log channel, directing logs to stderr.
+      # Image-specific vars (richarvey/nginx-php-fpm)
+      - key: WEBROOT
+        value: /var/www/html/public # Sets the webroot for the nginx-php-fpm image.
+      - key: RUN_SCRIPTS
+        value: 1 # Unknown variable, typically not used in Laravel deployments.
+      - key: REAL_IP_HEADER
+        value: 1 # Configures nginx to use the real IP from the header.
+      - key: SKIP_COMPOSER
+        value: 1 # Indicates to skip composer install, this should only be true if you're committing vendor directory.

@@ -2,14 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use PDF;
 use App\Models\Participant;
 use App\Models\School;
-use App\Models\Challenge;
-use Illuminate\Http\Request;
+use App\Mail\SendPdfEmail;
 use Illuminate\Support\Facades\Mail;
-use App\Mail\ReportMail;
-use  PDF; // Import PDF library
-use iio\libmergepdf\Merger; // Import Merger class
 
 class ReportController extends Controller
 {
@@ -17,118 +14,45 @@ class ReportController extends Controller
     {
         $participant = Participant::with('challenges', 'user', 'school')->findOrFail($participant_id);
 
-        $pdfs = [];
-        foreach ($participant->user as $user) {
-            $pdfs[] = $this->generateParticipantReport($participant, $user);
-        }
-
-        $mergedPdf = $this->mergePdfs($pdfs);
-
         $data = [
-            'subject' => 'Your Challenge Reports',
+            'subject' => 'Mathematics Challenge Participant Report',
+            'challenges' => $participant->challenges,
+            'user' => $participant->user,
             'participant' => $participant,
-            'challenges' => $participant->user,
+            'school' => $participant->school
         ];
 
-        Mail::to($participant->user->email)->send(new ReportMail($data, $mergedPdf, 'participant_reports.pdf'));
+        $pdf = PDF::loadView('reports.participant', $data)->setOptions(['defaultFont' => 'sans-serif']);
+        $pdfContent = $pdf->output();
+
+        Mail::to($participant->user->email)->send(
+            new SendPdfEmail('reports.participant', $data, $pdfContent, $participant->user->name . '_' . $participant->id . '_challengeResults.pdf')
+        );
 
         return redirect()->back()->with('success', 'Participant PDFs sent successfully');
     }
 
-    public function generateParticipantPdf($participant_id)
-    {
-        $participant = Participant::with('challenges', 'user', 'school')->findOrFail($participant_id);
-
-        $pdfs = [];
-        foreach ($participant->user as $user) {
-            $pdfs[] = $this->generateParticipantReport($participant, $user);
-        }
-
-        $mergedPdf = $this->mergePdfs($pdfs);
-
-        return response()->streamDownload(function () use ($mergedPdf) {
-            echo $mergedPdf;
-        }, 'participant_reports.pdf');
-    }
-
     public function sendSchoolPdf($school_id)
-    {
-        $school = School::with('participants.user')->findOrFail($school_id);
-
-        $pdfs = [];
-        foreach ($school->participants as $participant) {
-            foreach ($participant->challenge as $challenge) {
-                $pdfs[] = $this->generateSchoolReport($school, $challenge);
-            }
-        }
-
-        $mergedPdf = $this->mergePdfs($pdfs);
-
-        $data = [
-            'subject' => 'School Challenge Reports',
-            'school' => $school,
-            'challenges' => $school->participants->flatMap->challenges,
-        ];
-
-        Mail::to($school->email)->send(new ReportMail($data, $mergedPdf, 'school_reports.pdf'));
-
-        return redirect()->back()->with('success', 'School PDFs sent successfully');
-    }
-
-    public function generateSchoolPdf($school_id)
     {
         $school = School::with('participants.challenges')->findOrFail($school_id);
 
         $pdfs = [];
         foreach ($school->participants as $participant) {
             foreach ($participant->challenges as $challenge) {
-                $pdfs[] = $this->generateSchoolReport($school, $challenge);
+                $pdf = PDF::loadView('reports.school', ['challenge' => $challenge,'school'=>$school])->setOptions(['defaultFont' => 'sans-serif']);
+                $pdfs[] = $pdf->output();
             }
         }
 
-        $mergedPdf = $this->mergePdfs($pdfs);
-
-        return response()->streamDownload(function () use ($mergedPdf) {
-            echo $mergedPdf;
-        }, 'school_reports.pdf');
-    }
-
-    private function mergePdfs($pdfs)
-    {
-        $merger = new Merger;
-
-        foreach ($pdfs as $pdf) {
-            $merger->addRaw($pdf);
-        }
-
-        return $merger->merge();
-    }
-
-    /**
-     * Generate the participant report PDF.
-     */
-    private function generateParticipantReport($participant, $challenge)
-    {
         $data = [
-            'participant' => $participant,
-            'challenge' => $challenge,
+            'subject' => 'School Challenge Results',
+            'school' => $school
         ];
 
-        $pdf = PDF::loadView('reports.participant', $data);
-        return $pdf->output();
-    }
+        Mail::to($school->email)->send(
+            new SendPdfEmail('reports.school', $data, implode('', $pdfs), $school->name . '_challengeResults.pdf')
+        );
 
-    /**
-     * Generate the school report PDF.
-     */
-    private function generateSchoolReport($school, $challenge)
-    {
-        $data = [
-            'school' => $school,
-            'challenge' => $challenge,
-        ];
-
-        $pdf = PDF::loadView('reports.school', $data);
-        return $pdf->output();
+        return redirect()->back()->with('success', 'School PDFs sent successfully');
     }
 }

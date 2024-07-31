@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Participant extends Model
 {
@@ -24,18 +25,18 @@ class Participant extends Model
     }
     public function school()
     {
-        return $this->belongsTo(School::class);
+        return $this->belongsTo(School::class,'id');
     }
     public function challenges() {
         return $this->belongsToMany(Challenge::class, 'challenge_participants');
     }
     
-    public function attemptedQuestions()
+    public function attemptedQuestions(): HasMany
     {
         return $this->hasMany(AttemptedQuestion::class);
     }
 
-    public function challengeAttempts()
+    public function challengeAttempts(): HasMany
     {
         return $this->hasMany(ChallengeAttempt::class);
     }
@@ -43,7 +44,7 @@ class Participant extends Model
     {
         return $this->hasMany(Attempt::class);
     }
-    public function challengeParticipants()
+    public function challengeParticipants(): HasMany
     {
         return $this->hasMany(ChallengeParticipant::class);
     }

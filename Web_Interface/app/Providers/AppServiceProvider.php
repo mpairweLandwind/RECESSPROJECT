@@ -3,8 +3,8 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
-use Illuminate\Support\Facades\View; // Import the View facade
-use App\Services\ReportService;
+use Illuminate\Support\Facades\View; 
+use Illuminate\Routing\UrlGenerator;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -13,19 +13,22 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->app->singleton(ReportService::class, function ($app) {
-            return new ReportService();
-        });
+        //
     }
 
     /**
      * Bootstrap any application services.
      */
-    public function boot(): void
+    public function boot(UrlGenerator $url)
     {
         // Register view composers
         View::composer('components.analytics', \App\Http\ViewComposers\AnalyticsComposer::class);
         View::composer('components.welcome', \App\Http\ViewComposers\WelcomeComposer::class);
         View::composer('components.reports', \App\Http\ViewComposers\ReportsComposer::class);
+
+
+        if (env('APP_ENV') == 'production') {
+            $url->forceScheme('https');
+        }
     }
 }

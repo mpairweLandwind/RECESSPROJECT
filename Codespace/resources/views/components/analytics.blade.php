@@ -70,11 +70,12 @@
 
                 <!-- Question Repetition Percentage -->
                 <div class="bg-gray-800 p-4 rounded shadow">
-                    <h3 class="text-xl font-semibold mb-2"> Most 5 Repeated Questions and Their Percentage</h3>
+                    <h3 class="text-xl font-semibold mb-2"> Most Repeated Questions and Their Percentage</h3>
                     <table class="table-auto w-full">
                         <thead>
                             <tr>
                                 <th class="px-4 py-2 text-white">Question Text</th>
+                                <th class="px-4 py-2 text-white">Total Attempts</th>
                                 <th class="px-4 py-2 text-white">Repetition Percentage</th>
                             </tr>
                         </thead>
@@ -82,6 +83,7 @@
                             @foreach ($questionRepetition as $attemptedQuestion)
                             <tr>
                                 <td class="border px-4 py-2 text-white">{{ $attemptedQuestion->question->question_text }}</td>
+                                <td class="border px-4 py-2 text-white">{{ $attemptedQuestion->total_attempts }}</td>
                                 <td class="border px-4 py-2 text-white">{{ number_format($attemptedQuestion->repetition_percentage, 2) }}%</td>
                             </tr>
                             @endforeach

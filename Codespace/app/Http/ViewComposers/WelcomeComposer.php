@@ -63,11 +63,16 @@ class WelcomeComposer
 
         $performanceChartData = $this->getPerformanceChartData();
 
-        $questionRepetition = AttemptedQuestion::select('question_id', DB::raw('COUNT(*) as total_attempts'), DB::raw('SUM(case when is_repeated = true then 1 else 0 end) as repeated_count'), DB::raw('SUM(case when is_repeated = true then 1 else 0 end) / COUNT(*) * 100 as repetition_percentage'))
+        $questionRepetition = AttemptedQuestion::select(
+            'question_id',
+            DB::raw('COUNT(*) as total_attempts'),
+            DB::raw('SUM(CASE WHEN is_repeated = true THEN 1 ELSE 0 END) as repeated_count'),
+            DB::raw('(SUM(CASE WHEN is_repeated = true THEN 1 ELSE 0 END) / 20.0) * 100 as repetition_percentage')
+        )
         ->groupBy('question_id')
         ->orderBy('repetition_percentage', 'desc')
         ->with('question')
-        ->limit(5) // Assuming the relationship method is 'question'
+        ->limit(4)
         ->get();
 
         $worstPerformingSchools = School::with([

@@ -19,3 +19,8 @@ import javax.mail.PasswordAuthentication;
   | 2024-07-11 10:00:00 | 2024-07-18 23:58:00 
 
 postgresql://postgres.vniqmjgcmhhmocvxgdeb:[YOUR-PASSWORD]@aws-0-eu-central-1.pooler.supabase.com:6543/postgres
+
+* * * * * cd /home/landwind/RecessProject/Codespace && php artisan schedule:run >> /dev/null 2>&1
+tail -f /home/landwind/RecessProject/Codespace/storage/logs/laravel.log
+
+

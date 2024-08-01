@@ -23,4 +23,7 @@ postgresql://postgres.vniqmjgcmhhmocvxgdeb:[YOUR-PASSWORD]@aws-0-eu-central-1.po
 * * * * * cd /home/landwind/RecessProject/Codespace && php artisan schedule:run >> /dev/null 2>&1
 tail -f /home/landwind/RecessProject/Codespace/storage/logs/laravel.log
 
+php artisan reports:sendpdf
+
+
 

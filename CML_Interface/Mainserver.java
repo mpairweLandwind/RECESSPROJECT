@@ -929,7 +929,7 @@ private static void updateParticipant(Connection conn, int participantId, Long s
             "attempts_left = attempts_left - 1, " +
             "total_score = total_score + ?, " +
             "time_taken = time_taken + ?, " +
-            "completed = true " +
+            "completed = ? " +
             "WHERE participant_id = ? AND challenge_id IS NULL";
 
     String getLastAttemptQuery = "SELECT attempts_left FROM participants " +
@@ -937,7 +937,15 @@ private static void updateParticipant(Connection conn, int participantId, Long s
             "ORDER BY updated_at DESC LIMIT 1";
 
     String insertQuery = "INSERT INTO participants (participant_id, school_id, challenge_id, attempts_left, total_score, completed, time_taken, created_at, updated_at) "
-            + "VALUES (?, ?, ?, ?, ?, ?,?, now(), now())";
+            + "VALUES (?, ?, ?, ?, ?, ?, ?, now(), now())";
+
+    String countAttemptedQuestionsQuery = "SELECT COUNT(*) AS attempted_questions " +
+            "FROM attempted_questions " +
+            "WHERE participant_id = ? AND challenge_attempt_id = (" +
+            "SELECT MAX(challenge_attempt_id) FROM attempted_questions " +
+            "WHERE participant_id = ? AND challenge_id = ?)";
+
+    String getTotalQuestionsQuery = "SELECT number_of_questions FROM challenges WHERE id = ?";
 
     boolean initialAutoCommit = conn.getAutoCommit(); // Save the current auto-commit state
 
@@ -946,12 +954,36 @@ private static void updateParticipant(Connection conn, int participantId, Long s
             conn.setAutoCommit(false); // Start transaction
         }
 
+        // Get the number of attempted questions by the participant for the most recent
+        // challenge attempt
+        int attemptedQuestions;
+        try (PreparedStatement countAttemptedQuestionsStmt = conn.prepareStatement(countAttemptedQuestionsQuery)) {
+            countAttemptedQuestionsStmt.setInt(1, participantId);
+            countAttemptedQuestionsStmt.setInt(2, participantId);
+            countAttemptedQuestionsStmt.setInt(3, challengeNumber);
+            ResultSet rs = countAttemptedQuestionsStmt.executeQuery();
+            rs.next();
+            attemptedQuestions = rs.getInt("attempted_questions");
+        }
+
+        // Get the total number of questions in the challenge
+        int totalQuestions;
+        try (PreparedStatement getTotalQuestionsStmt = conn.prepareStatement(getTotalQuestionsQuery)) {
+            getTotalQuestionsStmt.setInt(1, challengeNumber);
+            ResultSet rs = getTotalQuestionsStmt.executeQuery();
+            rs.next();
+            totalQuestions = rs.getInt("number_of_questions");
+        }
+
+        boolean isCompleted = attemptedQuestions == totalQuestions;
+
         // First update query: update when participant_id=? and challenge_id is null
         try (PreparedStatement updateStmt1 = conn.prepareStatement(updateQuery1)) {
             updateStmt1.setInt(1, challengeNumber);
             updateStmt1.setInt(2, scoreResult.getTotalScore());
             updateStmt1.setLong(3, totalTimeSpent);
-            updateStmt1.setInt(4, participantId);
+            updateStmt1.setBoolean(4, isCompleted);
+            updateStmt1.setInt(5, participantId);
             int rowsUpdated1 = updateStmt1.executeUpdate();
             if (rowsUpdated1 > 0) {
                 conn.commit(); // Commit transaction
@@ -979,7 +1011,7 @@ private static void updateParticipant(Connection conn, int participantId, Long s
             insertStmt.setInt(3, challengeNumber);
             insertStmt.setInt(4, attemptsLeft); // Use the decremented attempts left
             insertStmt.setInt(5, scoreResult.getTotalScore());
-            insertStmt.setBoolean(6, true); // Set completed to false for new records
+            insertStmt.setBoolean(6, isCompleted); // Set completed based on question count
             insertStmt.setLong(7, totalTimeSpent);
             insertStmt.executeUpdate();
             conn.commit(); // Commit transaction

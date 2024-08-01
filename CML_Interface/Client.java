@@ -99,7 +99,6 @@ public class Client {
                     List<String> questions = new ArrayList<>();
                     List<String> answers = new ArrayList<>();
                     String username = null;
-                   // long totalTimeSpent = 0;
                     long duration = 0; // Duration in milliseconds
                     long startTime = System.currentTimeMillis();
     
@@ -119,7 +118,7 @@ public class Client {
                             }
                         }
                     }
-
+    
                     while (true) {
                         String line = readServerResponse();
                         if (line == null) {
@@ -133,12 +132,8 @@ public class Client {
                             questions.add(line.substring(10)); // Add the question to the list
                         } else if (line.startsWith("Enter your answer:")) {
                             System.out.print(line + " "); // Display the answer prompt
-                           // long questionStartTime = System.currentTimeMillis(); // Record the start time for the question
                             String answer = readUserInput("");
-                           // long questionEndTime = System.currentTimeMillis();
                             answers.add(answer);
-                            // long timeSpentOnQuestion = questionEndTime - questionStartTime;
-                            // totalTimeSpent += timeSpentOnQuestion;
                             writer.println(answer); // Send the answer to the server
                             writer.flush();
     
@@ -147,7 +142,7 @@ public class Client {
                             long elapsedTime = currentTime - startTime;
     
                             // Check if the total time spent exceeds the duration of the challenge
-                            if (elapsedTime == duration) {
+                            if (elapsedTime >= duration) {
                                 writer.println("Time is up! Submitting your answers now.");
                                 submitChallenge(response, questions, answers, username);
                                 writer.flush();
@@ -158,30 +153,20 @@ public class Client {
                             long remainingTime = duration - elapsedTime;
                             long remainingMinutes = remainingTime / 60000;
                             long remainingSeconds = (remainingTime / 1000) % 60;
-
-                            
     
                             writer.println("Answer received. Press Enter to display the next question. " +
                                     "Remaining Time: " + remainingMinutes + " minutes " + remainingSeconds + " seconds");
                             writer.flush();
                             readUserInput(""); // Wait for the user to press Enter
-                        } else if (line.equals("Time is up! Submitting your answers now.")
-                                || line.equals("End of questions")) {
-                                   
+                        } else if (line.equals("Time is up! Submitting your answers now.") || line.equals("End of questions")) {
+                            submitChallenge(response, questions, answers, username);                           
                             break;
-
-
-                        
                         } else if (line.contains("Invalid command.")) {
                             break;
-                        }
-                        
-                        else {
+                        } else {
                             System.out.println(line); // Display any additional information
                         }
                     }
-    
-                 
     
                     // Submit the collected answers and total time spent to the server
                     submitChallenge(response, questions, answers, username);
@@ -201,16 +186,17 @@ public class Client {
             }
         }
     }
+    
     private static void submitChallenge(String challengeDetails, List<String> questions, List<String> answers,
-        String username) {
-    writer.println("SubmitChallenge");
-    writer.println(challengeDetails);
-    writer.println("username: " + username);
-    for (String answer : answers) {
-        writer.println(answer);
+            String username) {
+        writer.println("SubmitChallenge");
+        writer.println(challengeDetails);
+        writer.println("username: " + username);
+        for (String answer : answers) {
+            writer.println(answer);
+        }
     }
-
-}
+    
 
 
     private static String readServerResponse() throws IOException {

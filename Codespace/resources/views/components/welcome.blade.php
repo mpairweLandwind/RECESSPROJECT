@@ -254,43 +254,44 @@
 
 
     // Monthly Registrations Chart
-    var ctxMonthlyRegistrations = document.getElementById('monthlyRegistrationsChart').getContext('2d');
-    var monthlyRegistrationsChart = new Chart(ctxMonthlyRegistrations, {
-        type: 'line',
-        data: {
-            labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
-            datasets: [{
-                    label: 'Schools',
-                    data: @json(array_values($monthlyRegistrationData['schoolRegistrations'])),
-                    borderColor: 'rgba(75, 192, 192, 1)',
-                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                    fill: true,
-                    tension: 0.4
-                },
-                {
-                    label: 'Participants',
-                    data: @json(array_values($monthlyRegistrationData['participantRegistrations'])),
-                    borderColor: 'rgba(153, 102, 255, 1)',
-                    backgroundColor: 'rgba(153, 102, 255, 0.2)',
-                    fill: true,
-                    tension: 0.4
+var ctxMonthlyRegistrations = document.getElementById('monthlyRegistrationsChart').getContext('2d');
+var monthlyRegistrationsChart = new Chart(ctxMonthlyRegistrations, {
+    type: 'line',
+    data: {
+        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+        datasets: [{
+                label: 'Schools',
+                data: @json($monthlyRegistrationData['schoolRegistrations']),
+                borderColor: 'rgba(75, 192, 192, 1)',
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                fill: true,
+                tension: 0.4
+            },
+            {
+                label: 'Participants',
+                data: @json($monthlyRegistrationData['participantRegistrations']),
+                borderColor: 'rgba(153, 102, 255, 1)',
+                backgroundColor: 'rgba(153, 102, 255, 0.2)',
+                fill: true,
+                tension: 0.4
+            }
+        ]
+    },
+    options: {
+        scales: {
+            y: {
+                beginAtZero: true,
+                ticks: {
+                    color: '#fff'
                 }
-            ]
-        },
-        options: {
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: {
-                        color: '#fff'
-                    }
-                },
-                x: {
-                    ticks: {
-                        color: '#fff'
-                    }
+            },
+            x: {
+                ticks: {
+                    color: '#fff'
                 }
             }
         }
-    });
+    }
+});
+
 </script>

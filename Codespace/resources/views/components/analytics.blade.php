@@ -129,7 +129,7 @@
                             @foreach ($worstPerformingSchools as $school)
                             <tr>
                                 <td class="border px-4 py-2 text-white">{{ $school->name }}</td>
-                                <td class="border px-4 py-2 text-white">{{ $school->total_score }}</td>
+                                <td class="p-2">{{ number_format($school->average_score, 2) }} points</td>
                             </tr>
                             @endforeach
                         </tbody>
@@ -137,15 +137,28 @@
                 </div>
 
 
-                <!-- Participants with Incomplete Challenges -->
-                <div class="bg-gray-800 p-4 rounded shadow">
-                    <h3 class="text-xl font-semibold mb-2">Participants with Incomplete Challenges</h3>
-                    <ul>
-                        @foreach ($incompleteParticipants as $participant)
-                        <li>{{ $participant->name }}</li>
-                        @endforeach
-                    </ul>
+              <!-- Participants with Incomplete Challenges -->
+<div class="bg-gray-800 p-4 rounded shadow">
+    <h3 class="text-xl font-semibold mb-2 text-white">Participants with Incomplete Challenges</h3>
+    <ul>
+        @forelse ($incompleteParticipants as $participant)
+            <li class="text-white">
+                <div>
+                    <strong>Username:</strong> {{ $participant->user->username ?? 'N/A' }}
                 </div>
+                <div>
+                    <strong>School:</strong> {{ $participant->school->name ?? 'N/A' }}
+                </div>
+                <div>
+                    <strong>Incomplete Challenges:</strong> {{ $participant->where('completed', false)->count() }}
+                </div>
+            </li>
+        @empty
+            <li class="text-white">No participants with incomplete challenges.</li>
+        @endforelse
+    </ul>
+</div>
+
 
                 <!-- Other Reports -->
                 <div class="bg-gray-800 p-4 rounded shadow">

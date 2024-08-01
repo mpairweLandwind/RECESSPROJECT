@@ -58,12 +58,13 @@ class AnalyticsComposer
         ->join('participants', 'schools.id', '=', 'participants.school_id')
         ->groupBy('schools.id', 'schools.name')
         ->orderBy('average_score', 'desc')
-        ->take(5)
+        ->take(2)
         ->get();
 
-        $incompleteParticipants = Participant::whereHas('attemptedQuestions', function ($query) {
-            $query->where('status', 'incomplete');
-        })->get();
+        $incompleteParticipants = Participant::with(['school', 'user'])
+        ->where('completed', false)
+        ->get();
+    
 
         $view->with(
             compact(

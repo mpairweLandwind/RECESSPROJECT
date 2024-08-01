@@ -166,21 +166,41 @@ class WelcomeComposer
 }
 
 
-    private function getMonthlyRegistrationData()
-    {
-        $schools = School::select(DB::raw('EXTRACT(MONTH FROM created_at) as month'), DB::raw('COUNT(*) as count'))
-            ->groupBy('month')
-            ->orderBy('month')
-            ->get();
+private function getMonthlyRegistrationData()
+{
+    // Generate empty array for all months (index 0 = Jan, index 11 = Dec)
+    $monthlyData = [
+        'schoolRegistrations' => array_fill(0, 12, 0),
+        'participantRegistrations' => array_fill(0, 12, 0)
+    ];
 
-        $participants = Participant::select(DB::raw('EXTRACT(MONTH FROM created_at) as month'), DB::raw('COUNT(*) as count'))
-            ->groupBy('month')
-            ->orderBy('month')
-            ->get();
+    // Query for school registrations
+    $schools = School::select(
+            DB::raw('EXTRACT(MONTH FROM created_at) AS month'),
+            DB::raw('COUNT(*) AS count')
+        )
+        ->groupBy('month')
+        ->orderBy('month')
+        ->get();
 
-        return [
-            'schoolRegistrations' => $schools->pluck('count', 'month')->all(),
-            'participantRegistrations' => $participants->pluck('count', 'month')->all()
-        ];
+    // Query for participant registrations
+    $participants = Participant::select(
+            DB::raw('EXTRACT(MONTH FROM created_at) AS month'),
+            DB::raw('COUNT(*) AS count')
+        )
+        ->groupBy('month')
+        ->orderBy('month')
+        ->get();
+
+    // Map the results to the array
+    foreach ($schools as $school) {
+        $monthlyData['schoolRegistrations'][$school->month - 1] = $school->count;
     }
+
+    foreach ($participants as $participant) {
+        $monthlyData['participantRegistrations'][$participant->month - 1] = $participant->count;
+    }
+
+    return $monthlyData;
+}
 }
